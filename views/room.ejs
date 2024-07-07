@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teams Clone</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- <script src="/socket.io/socket.io.js"></script> -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
+    <script src="https://kit.fontawesome.com/c939d0e917.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script> -->
+    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+      const ROOM_ID = "<%= roomId %>";
+    </script>
+  </head>
+  <body>
+    <div class="header">
+      <div class="logo">
+
+        <div class="header__back">
+          <i class="fas fa-arrow-left"></i>
+        </div>
+
+        <div class="logo_content">
+
+          <div class="options__button">
+            <i class="fa-lg fab fa-microsoft"></i>
+          </div>
+
+          <div class="logo_text_box">
+            <div class="logo_text">
+              <h2>TEAMS CLONE</h2>
+            </div>
+            
+          </div>
+
+        </div>
+      </div>
+      <div class="leave">
+        <div id ="leave-meet" class="leave-button options__button">
+          <div class="leave-text">Leave</div>
+        </div>
+      </div>
+    </div>  
+    <div class="main">  
+    <div class="main__left">
+      <div id="network-speed">
+        <!-- <p>ResponseTime : </p> -->
+        <div id = "network-content">
+          <i class="fa fa-signal" aria-hidden="true"></i>
+          <div class="" id= "rtt-value"></div>
+        </div>
+      </div>
+      <div class="videos__group">
+        <div id="video-grid">
+          
+        </div>
+      </div>
+      <div class="options">
+        <div class="options__left">
+          <div id="stopVideo" class="options__button">
+            <!-- <i class="fa fa-video-camera"></i> -->
+            <i class="fas fa-video"></i>
+          </div>
+          <div id="muteButton" class="options__button">
+            <i class="fa fa-microphone"></i>
+          </div>
+          <div id="showChat" class="options__button">
+            <i class="fa fa-comment"></i>
+          </div>
+          <div id="shareScreen" class="options__button">
+            <i class="fas fa-photo-video"></i>
+          </div>
+        </div>
+        <div class="options__right">
+          <div id="inviteButton" class="options__button">
+            <i class="fas fa-user-plus"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="main__right">
+      <div class="main__chat_window">
+          <div class="messages">
+          </div>
+          <div id="feedback"></div>
+      </div>
+      
+      <div class="main__message_container">
+        <input id="chat_message" type="text" autocomplete="off" placeholder="Type message here...">
+        <div id="send" class="options__button">
+          <!-- <i class="fa fa-plus" aria-hidden="true"></i> -->
+          <i class="fa fa-paper-plane" aria-hidden="true"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  </body>
+  <script src="client.js"></script>
+</html>
