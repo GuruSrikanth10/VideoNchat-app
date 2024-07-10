@@ -37,7 +37,7 @@ For testing locally we can run a server on some port by using this command
    
       host: "Localhost" || process.env.HOST,
     // host: "https://peerjs.com/peerserver",
-     port: 9000,
+     port: 9000 || process.env.PORT2,
     // path: "/myapp",
   });
 
