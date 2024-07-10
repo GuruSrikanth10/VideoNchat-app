@@ -35,9 +35,10 @@ For testing locally we can run a server on some port by using this command
 */
   const peer = new Peer(undefined, {
     //host: "gurus-peerjs-server.herokuapp.com",
-    host: "localhost",
-    port: 9000,
-    path: "/myapp",
+      host: "https://peerjs.com/peerserver",
+    // host: "localhost",
+    // port: 9000,
+    // path: "/myapp",
   });
 
   var peers = {};
