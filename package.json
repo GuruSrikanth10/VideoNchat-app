@@ -1,7 +1,7 @@
 {
   "name": "videochat",
   "version": "1.0.0",
-  "description": "Building a Microsoft Teams clone during Microsoft Engage'21 program.",
+  "description": "Building a Videochatapp.",
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
