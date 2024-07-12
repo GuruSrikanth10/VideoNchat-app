@@ -3,7 +3,7 @@ const app = express();
 const { v4: uuidv4 } = require("uuid");
 
 //****************************//PORT //****************************//
-const port = process.env.PORT || 3000; // While hosting 3000 may not be available
+const port =  3000 || process.env.PORT; // While hosting 3000 may not be available
 const server = app.listen(port, () =>
   console.log(`Listening on port ${port}..`)
 );
