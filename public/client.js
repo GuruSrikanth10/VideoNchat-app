@@ -35,7 +35,7 @@ For testing locally we can run a server on some port by using this command
 */
   const peer = new Peer(undefined, {
    
-      host:"13.201.168.193",
+      host:"peerjs-server-kj2n.onrender.com",
     // host: "https://peerjs.com/peerserver",
     // port: 9000 ,
     // path: "/myapp",
