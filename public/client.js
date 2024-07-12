@@ -90,27 +90,7 @@ For testing locally we can run a server on some port by using this command
       });
     });
 
-  // testing code
 
-  socket.on("user-connected", (userId, userName) => {
-    //For alert
-    Swal.fire({
-      position: "top-end",
-      text: userName + " Has joined the meet!!",
-      showConfirmButton: false,
-      timer: 1500,
-      width: 250,
-    });
-    const fc = () => connectToNewUser(userId, stream);
-    timerid = setTimeout(fc, 2000);
-  });
-
-  socket.on("user-disconnected", (userId) => {
-    if (peers[userId]) peers[userId].close();
-    console.log(userId + " : Disconnected :(");
-  });
-
-  //testing code.
 
   const connectToNewUser = (userId, stream) => {
     // Call a peer, providing our mediaStream
