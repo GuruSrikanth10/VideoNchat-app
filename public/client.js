@@ -36,10 +36,6 @@ For testing locally we can run a server on some port by using this command
   const peer = new Peer(undefined, {
    
   host: "13.201.168.193",
-  port: 443, // Use 443 for HTTPS
-  path: "/peerjs", // Ensure this matches your server's path
-  secure: true, // Enable secure connection
-     
     // host: "https://peerjs.com/peerserver",
     // port: 9000 ,
     // path: "/myapp",
