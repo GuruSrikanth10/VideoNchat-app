@@ -680,9 +680,10 @@ button:disabled {
   background: var(--danger);
 }
 
-/* -------------------------------------------------------------- chat */
+/* ------------------------------------------------------ side panels */
 
-.chat {
+.panel {
+  position: relative;
   display: none;
   flex-direction: column;
   width: var(--chat-width);
@@ -691,11 +692,12 @@ button:disabled {
   background: var(--surface);
 }
 
-[data-chat-open] .chat {
+[data-panel="chat"] #chat,
+[data-panel="people"] #people {
   display: flex;
 }
 
-.chat__header {
+.panel__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -703,8 +705,86 @@ button:disabled {
   border-bottom: 1px solid var(--border);
 }
 
-.chat__header h2 {
+.panel__header h2 {
   font-size: 1rem;
+}
+
+.chat__jump {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 0.875rem;
+  transform: translateX(-50%);
+  box-shadow: var(--shadow);
+}
+
+.chat__counter {
+  padding: 0 16px 8px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.chat__counter:empty {
+  display: none;
+}
+
+.message__text a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.people {
+  flex: 1;
+  margin: 0;
+  padding: 8px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: var(--radius);
+}
+
+.person:hover {
+  background: var(--surface-2);
+}
+
+.person__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-strong);
+  color: var(--accent-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.person__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person__states {
+  display: flex;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.person__state .icon {
+  width: 18px;
+  height: 18px;
 }
 
 .chat__scroller {
@@ -829,6 +909,12 @@ button:disabled {
 .control[data-active="true"] {
   background: var(--text);
   color: var(--bg);
+}
+
+/* The toggle of the side panel that is open. */
+.control[aria-expanded="true"] {
+  background: var(--accent-strong);
+  color: var(--accent-text);
 }
 
 .control--danger {
@@ -1140,8 +1226,8 @@ button:disabled {
     grid-row: 2;
   }
 
-  /* Chat covers the stage instead of sitting beside it. */
-  [data-chat-open] .chat {
+  /* Side panels cover the stage instead of sitting beside it. */
+  [data-panel] .panel {
     position: fixed;
     inset: var(--topbar-height) 0 var(--controls-height);
     z-index: 20;

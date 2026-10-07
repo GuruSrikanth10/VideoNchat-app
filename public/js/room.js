@@ -7,6 +7,7 @@ import { summarize, rate } from "./lib/stats.js";
 import { local, session } from "./lib/storage.js";
 import { Tiles } from "./ui/tiles.js";
 import { Chat } from "./ui/chat.js";
+import { People } from "./ui/people.js";
 import { toast } from "./ui/toast.js";
 import { confirmDialog, choiceDialog } from "./ui/dialog.js";
 import { hydrateIcons, setIcon } from "./ui/icons.js";
@@ -42,6 +43,8 @@ const chat = new Chat({
   typing: $("typing"),
   form: $("chat-form"),
   input: $("chat-input"),
+  counter: $("chat-counter"),
+  jump: $("chat-jump"),
   onSend: async (text) => {
     const reply = await request(socket, "chat:send", { text });
     if (!reply.ok) toast(describeError(reply.error), { tone: "warning" });
@@ -50,6 +53,7 @@ const chat = new Chat({
     if (joined) socket.emit("chat:typing", { typing });
   },
 });
+const people = new People($("people-list"));
 
 // ---------------------------------------------------------------- joining
 
@@ -78,7 +82,7 @@ async function enterCall(chosenName) {
   $("lobby").hidden = true;
   document.querySelector(".room").hidden = false;
   $("controls").hidden = false;
-  if (matchMedia("(min-width: 1100px)").matches) setChatOpen(true, { focus: false });
+  if (matchMedia("(min-width: 1100px)").matches) setPanel("chat", { focus: false });
 
   tiles.upsert("self", { name, self: true });
   refreshSelfView();
@@ -191,6 +195,7 @@ function addParticipant(participant, { quiet = false } = {}) {
   showRemoteMedia(participant.id);
   if (!known && !quiet) toast(`${participant.name} joined`);
   updateCount();
+  renderPeople();
 }
 
 function updateParticipant(participant) {
@@ -204,6 +209,7 @@ function updateParticipant(participant) {
   });
   if (participant.screen && !previous.screen) toast(`${participant.name} is presenting`);
   showRemoteMedia(participant.id);
+  renderPeople();
 }
 
 function removeParticipant(id, { quiet = false } = {}) {
@@ -215,6 +221,7 @@ function removeParticipant(id, { quiet = false } = {}) {
   tiles.remove(id);
   if (participant && !quiet) toast(`${participant.name} left`);
   updateCount();
+  renderPeople();
 }
 
 // Shows a participant's camera, and their screen while they present.
@@ -234,6 +241,20 @@ function showRemoteMedia(id) {
   } else {
     tiles.hideScreen(id);
   }
+}
+
+function renderPeople() {
+  people.render([
+    {
+      id: "self",
+      name,
+      self: true,
+      audio: media.micEnabled && Boolean(media.mic),
+      video: media.cameraEnabled && Boolean(media.camera),
+      screen: share.active,
+    },
+    ...participants.values(),
+  ]);
 }
 
 function updateCount() {
@@ -304,6 +325,7 @@ share.addEventListener("change", () => {
 });
 
 function sendMediaState() {
+  renderPeople();
   if (!joined) return;
   socket.emit("media:state", {
     audio: media.micEnabled,
@@ -382,16 +404,40 @@ $("share").addEventListener("click", async () => {
   }
 });
 
-$("chat-toggle").addEventListener("click", () => setChatOpen(!document.body.dataset.chatOpen));
-$("chat-close").addEventListener("click", () => setChatOpen(false));
+// Side panels (chat, people): at most one is open at a time.
+const PANELS = {
+  chat: { toggle: "chat-toggle", focus: "chat-input" },
+  people: { toggle: "people-toggle", focus: "people-close" },
+};
 
-function setChatOpen(open, { focus = true } = {}) {
-  if (open) document.body.dataset.chatOpen = "true";
-  else delete document.body.dataset.chatOpen;
-  $("chat-toggle").setAttribute("aria-expanded", String(open));
-  $("chat-unread").hidden = true;
-  if (open && focus) $("chat-input").focus();
+function setPanel(panel, { focus = true } = {}) {
+  if (panel) document.body.dataset.panel = panel;
+  else delete document.body.dataset.panel;
+  for (const [key, { toggle }] of Object.entries(PANELS)) {
+    $(toggle).setAttribute("aria-expanded", String(key === panel));
+  }
+  if (panel === "chat") $("chat-unread").hidden = true;
+  if (panel && focus) $(PANELS[panel].focus).focus();
 }
+
+const togglePanel = (panel) => setPanel(document.body.dataset.panel === panel ? null : panel);
+
+for (const [key, { toggle }] of Object.entries(PANELS)) {
+  $(toggle).addEventListener("click", () => togglePanel(key));
+  $(key).addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    setPanel(null);
+    $(toggle).focus();
+  });
+}
+$("chat-close").addEventListener("click", () => {
+  setPanel(null);
+  $("chat-toggle").focus();
+});
+$("people-close").addEventListener("click", () => {
+  setPanel(null);
+  $("people-toggle").focus();
+});
 
 const callDevices = new DevicePicker({
   media,

@@ -111,8 +111,8 @@
         <div id="tiles" class="tiles" data-layout="grid" data-count="0" data-screens="0"></div>
       </section>
 
-      <aside id="chat" class="chat" aria-labelledby="chat-heading">
-        <header class="chat__header">
+      <aside id="chat" class="panel chat" aria-labelledby="chat-heading">
+        <header class="panel__header">
           <h2 id="chat-heading">Chat</h2>
           <button id="chat-close" class="icon-btn" type="button" aria-label="Close chat">
             <svg data-icon="x"></svg>
@@ -121,6 +121,9 @@
         <div class="chat__scroller">
           <ol id="messages" class="messages" aria-live="polite" aria-relevant="additions"></ol>
         </div>
+        <button id="chat-jump" class="btn btn--primary chat__jump" type="button" hidden>
+          New messages ↓
+        </button>
         <p id="typing" class="typing" aria-live="polite"></p>
         <form id="chat-form" class="composer">
           <label for="chat-input" class="visually-hidden">Message</label>
@@ -130,11 +133,23 @@
             maxlength="1000"
             placeholder="Send a message"
             autocomplete="off"
+            aria-describedby="chat-counter"
           ></textarea>
           <button class="icon-btn icon-btn--accent" type="submit" aria-label="Send message">
             <svg data-icon="send"></svg>
           </button>
         </form>
+        <p id="chat-counter" class="chat__counter" aria-live="polite"></p>
+      </aside>
+
+      <aside id="people" class="panel" aria-labelledby="people-heading">
+        <header class="panel__header">
+          <h2 id="people-heading">People</h2>
+          <button id="people-close" class="icon-btn" type="button" aria-label="Close people">
+            <svg data-icon="x"></svg>
+          </button>
+        </header>
+        <ul id="people-list" class="people"></ul>
       </aside>
     </main>
 
@@ -164,6 +179,16 @@
           <svg data-icon="message-square"></svg>
           <span class="control__label">Chat</span>
           <span id="chat-unread" class="badge" hidden>New</span>
+        </button>
+        <button
+          id="people-toggle"
+          class="control"
+          type="button"
+          aria-controls="people"
+          aria-expanded="false"
+        >
+          <svg data-icon="users"></svg>
+          <span class="control__label">People</span>
         </button>
         <button id="invite" class="control" type="button">
           <svg data-icon="user-plus"></svg>

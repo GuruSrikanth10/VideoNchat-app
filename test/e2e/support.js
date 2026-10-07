@@ -80,6 +80,14 @@ async function openChat(page) {
   await expect(page.locator("#chat-input")).toBeVisible();
 }
 
+async function openPeople(page) {
+  if (!(await page.locator("#people").isVisible())) await page.locator("#people-toggle").click();
+  await expect(page.locator("#people")).toBeVisible();
+}
+
+// One row per person in the People panel.
+const peopleRows = (page) => page.locator("#people-list .person");
+
 async function sendChat(page, text) {
   await openChat(page);
   await page.locator("#chat-input").fill(text);
@@ -114,6 +122,8 @@ module.exports = {
   expectTiles,
   tile,
   openChat,
+  openPeople,
+  peopleRows,
   sendChat,
   leaveMeeting,
   chatMessages,

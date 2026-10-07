@@ -81,3 +81,45 @@ test("late joiners see the recent chat history", async ({ openUser, room }) => {
   await openChat(bob);
   await expect(chatMessages(bob)).toHaveText(["before you came"]);
 });
+
+test("links in messages can be opened safely", async ({ openUser, room }) => {
+  const { alice, bob } = await twoPeople(openUser, room);
+  await sendChat(bob, "notes at https://example.com/notes. and javascript:alert(1)");
+
+  const link = alice.locator("#messages a");
+  await expect(link).toHaveCount(1);
+  await expect(link).toHaveText("https://example.com/notes");
+  await expect(link).toHaveAttribute("href", "https://example.com/notes");
+  await expect(link).toHaveAttribute("target", "_blank");
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer nofollow");
+});
+
+test("reading older messages isn't interrupted by new ones", async ({ openUser, room }) => {
+  const { alice, bob } = await twoPeople(openUser, room);
+  for (let i = 1; i <= 8; i++) {
+    await sendChat(bob, `message ${i}\n${"padding\n".repeat(4)}`);
+    await bob.waitForTimeout(150); // stay within the chat rate limit
+  }
+  await expect(chatMessages(alice)).toHaveCount(8);
+
+  const scroller = alice.locator(".chat__scroller");
+  await scroller.evaluate((el) => (el.scrollTop = 0));
+  await sendChat(bob, "something new");
+  await expect(chatMessages(alice)).toHaveCount(9);
+  const jump = alice.getByRole("button", { name: "New messages" });
+  await expect(jump).toBeVisible();
+  expect(await scroller.evaluate((el) => el.scrollTop)).toBe(0);
+
+  await jump.click();
+  await expect(jump).toBeHidden();
+  await expect(chatMessages(alice).last()).toBeInViewport();
+});
+
+test("a counter appears near the length limit", async ({ openUser, room }) => {
+  const { alice } = await twoPeople(openUser, room);
+  const counter = alice.locator("#chat-counter");
+  await alice.locator("#chat-input").fill("short");
+  await expect(counter).toBeHidden();
+  await alice.locator("#chat-input").fill("x".repeat(950));
+  await expect(counter).toHaveText("50 characters left");
+});

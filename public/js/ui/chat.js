@@ -2,6 +2,28 @@
 // Remote text only ever goes into textContent.
 
 const timeFormat = new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit" });
+const MAX_LENGTH = 1000;
+
+// Splits text into strings and http(s) links. Exported for tests.
+export function linkify(text) {
+  const parts = [];
+  let last = 0;
+  for (const match of text.matchAll(/\bhttps?:\/\/[^\s<>"']+/gi)) {
+    // Trailing punctuation usually belongs to the sentence, not the link.
+    const url = match[0].replace(/[.,!?;:)\]]+$/, "");
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    let valid = null;
+    try {
+      valid = new URL(url);
+    } catch {
+      // not a URL after all
+    }
+    parts.push(valid && /^https?:$/.test(valid.protocol) ? { href: valid.href, text: url } : url);
+    last = match.index + url.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
 
 export class Chat {
   #list;
@@ -10,10 +32,18 @@ export class Chat {
   #seen = new Set();
   #selfId = null;
 
-  constructor({ list, typing, form, input, onSend, onTyping }) {
+  #jump;
+
+  constructor({ list, typing, form, input, counter, jump, onSend, onTyping }) {
     this.#list = list;
     this.#typing = typing;
-    this.#wireComposer({ form, input, onSend, onTyping });
+    this.#jump = jump;
+    this.#wireComposer({ form, input, counter, onSend, onTyping });
+    // "New messages" button: jump down, and hide it once you're there.
+    jump.addEventListener("click", () => this.#scrollToBottom());
+    list.parentElement.addEventListener("scroll", () => {
+      if (this.#isAtBottom()) jump.hidden = true;
+    });
   }
 
   setSelf(id) {
@@ -48,12 +78,25 @@ export class Chat {
 
     const body = document.createElement("p");
     body.className = "message__text";
-    body.textContent = text;
+    for (const part of linkify(text)) {
+      if (typeof part === "string") {
+        body.append(part);
+      } else {
+        const link = document.createElement("a");
+        link.href = part.href;
+        link.textContent = part.text;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer nofollow";
+        body.append(link);
+      }
+    }
 
     item.append(meta, body);
     const atBottom = this.#isAtBottom();
     this.#list.append(item);
+    // Don't yank someone who scrolled up to read; offer a way down instead.
     if (atBottom || mine) this.#scrollToBottom();
+    else this.#jump.hidden = false;
     this.#list.dispatchEvent(new CustomEvent("chat:new", { bubbles: true, detail: { mine } }));
   }
 
@@ -78,7 +121,12 @@ export class Chat {
             : "Several people are typing…";
   }
 
-  #wireComposer({ form, input, onSend, onTyping }) {
+  #wireComposer({ form, input, counter, onSend, onTyping }) {
+    // Remaining characters, shown only when the limit gets close.
+    const updateCounter = () => {
+      const left = MAX_LENGTH - input.value.length;
+      counter.textContent = left <= 200 ? `${left} characters left` : "";
+    };
     let typingSentAt = 0;
     let idleTimer;
     const stopTyping = () => {
@@ -92,6 +140,7 @@ export class Chat {
       const text = input.value.trim();
       if (text) onSend(text);
       input.value = "";
+      updateCounter();
       stopTyping();
     });
 
@@ -104,6 +153,7 @@ export class Chat {
     });
 
     input.addEventListener("input", () => {
+      updateCounter();
       clearTimeout(idleTimer);
       if (!input.value.trim()) return stopTyping();
       if (Date.now() - typingSentAt > 2000) {
@@ -122,5 +172,6 @@ export class Chat {
   #scrollToBottom() {
     const scroller = this.#list.parentElement;
     scroller.scrollTop = scroller.scrollHeight;
+    this.#jump.hidden = true;
   }
 }
