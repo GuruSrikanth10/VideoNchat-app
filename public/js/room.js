@@ -275,6 +275,8 @@ function renderPeople() {
 function updateCount() {
   const count = participants.size + 1;
   $("participant-count").textContent = count === 1 ? "Just you" : `${count} in call`;
+  // e.g. "(3) Meeting · VideoNChat", so the tab shows who's there.
+  document.title = `${count > 1 ? `(${count}) ` : ""}Meeting · VideoNChat`;
   mesh?.setVideoLimits(videoLimitsFor(count));
 }
 

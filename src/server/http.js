@@ -1,4 +1,5 @@
 // The Express app: pages, static files and HTTP endpoints.
+const fs = require("fs");
 const path = require("path");
 const { randomUUID } = require("crypto");
 const express = require("express");
@@ -7,7 +8,7 @@ const compression = require("compression");
 const { TOKEN } = require("./tokens");
 
 const PUBLIC = path.join(__dirname, "../../public");
-const page = (name) => path.join(PUBLIC, name);
+const VIEWS = path.join(__dirname, "../../views");
 
 // Only this origin may use the camera, microphone and screen capture.
 const PERMISSIONS_POLICY = [
@@ -57,6 +58,22 @@ const staticOptions = {
   setHeaders: (res) => res.setHeader("Cache-Control", "no-cache"),
 };
 
+// The HTML pages. {{origin}} becomes PUBLIC_URL (or nothing), so link
+// previews get the absolute image URLs most sites require. Production reads
+// each page once; development re-reads them so edits show up on reload.
+function pageRenderer(config) {
+  const render = (name) =>
+    fs
+      .readFileSync(path.join(VIEWS, name), "utf8")
+      .replaceAll("{{origin}}", config.publicUrl ?? "");
+  const cache = new Map();
+  return (name) => {
+    if (!config.isProduction) return render(name);
+    if (!cache.has(name)) cache.set(name, render(name));
+    return cache.get(name);
+  };
+}
+
 function createHttpApp({ config, health }) {
   const app = express();
   app.disable("x-powered-by");
@@ -85,27 +102,30 @@ function createHttpApp({ config, health }) {
 }
 
 // Page routes go last so the static files and APIs above take precedence.
-function addPageRoutes(app, { logger }) {
-  app.get("/", (req, res) => res.sendFile(page("index.html"), staticOptions));
+function addPageRoutes(app, { config, logger }) {
+  const page = pageRenderer(config);
+  // Revalidated every time, like the static files (send() adds an ETag).
+  const send = (res, name, status = 200) =>
+    res.status(status).type("html").set("Cache-Control", "no-cache").send(page(name));
+
+  app.get("/", (req, res) => send(res, "index.html"));
   app.get("/new", (req, res) => res.redirect(`/${randomUUID()}`));
 
-  app.get("/leave", (req, res) => res.sendFile(page("leave.html"), staticOptions));
+  app.get("/leave", (req, res) => send(res, "leave.html"));
 
   // Anything that isn't a valid room ID (e.g. /favicon.ico) is a 404.
   app.get("/:room", (req, res, next) => {
     if (!TOKEN.test(req.params.room)) return next();
-    res.sendFile(page("room.html"), staticOptions);
+    send(res, "room.html");
   });
 
-  app.use((req, res) => {
-    res.status(404).sendFile(page("404.html"));
-  });
+  app.use((req, res) => send(res, "404.html", 404));
 
   // Express recognises error handlers by their four parameters.
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     logger.error({ err }, "request failed");
-    res.status(500).sendFile(page("500.html"));
+    send(res, "500.html", 500);
   });
 }
 

@@ -34,7 +34,7 @@ function createServer({ config = loadConfig(), logger = createLogger(config) } =
   });
 
   attachRealtime({ io, rooms, config, logger });
-  addPageRoutes(app, { logger });
+  addPageRoutes(app, { config, logger });
 
   return { app, server, io, rooms, config, logger };
 }

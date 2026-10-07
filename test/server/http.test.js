@@ -58,6 +58,9 @@ test("the client's modules, styles and icons are served", async () => {
     "/js/lib/rtc.js",
     "/icons.svg",
     "/favicon.svg",
+    "/og.png",
+    "/icons/icon-192.png",
+    "/icons/apple-touch-icon.png",
     "/socket.io/socket.io.esm.min.js",
   ]) {
     assert.equal((await get(pathname)).status, 200, pathname);
@@ -113,4 +116,54 @@ test("start() listens on the PORT environment variable", async () => {
   } finally {
     child.kill();
   }
+});
+
+test("pages are only served at their routes, not as raw files", async () => {
+  for (const pathname of ["/room.html", "/index.html", "/views/room.html"]) {
+    assert.equal((await get(pathname)).status, 404, pathname);
+  }
+});
+
+test("the web app manifest is served with its media type", async () => {
+  const res = await get("/manifest.webmanifest");
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type"), /^application\/manifest\+json/);
+  const manifest = await res.json();
+  assert.equal(manifest.start_url, "/");
+  assert.ok(manifest.icons.some((icon) => icon.purpose === "maskable"));
+});
+
+test("meeting pages are kept out of search engines; the landing page isn't", async () => {
+  const noindex = /<meta name="robots" content="noindex" \/>/;
+  assert.doesNotMatch(await (await get("/")).text(), noindex);
+  for (const pathname of ["/some-room", "/leave", "/does/not/exist"]) {
+    assert.match(await (await get(pathname)).text(), noindex, pathname);
+  }
+});
+
+test("link previews use PUBLIC_URL for absolute image URLs when it's set", async () => {
+  const image = (html) => html.match(/<meta property="og:image" content="([^"]*)"/)[1];
+  assert.equal(image(await (await get("/some-room")).text()), "/og.png");
+
+  const hosted = await startTestServer({ PUBLIC_URL: "https://meet.example.com/ignored/path" });
+  try {
+    const html = await (await fetch(`${hosted.url}/some-room`)).text();
+    assert.equal(image(html), "https://meet.example.com/og.png");
+    assert.doesNotMatch(html, /\{\{origin\}\}/);
+  } finally {
+    await hosted.close();
+  }
+});
+
+test("pages get ETags, so revalidating them is cheap", async () => {
+  const first = await get("/");
+  const etag = first.headers.get("etag");
+  assert.ok(etag);
+  assert.equal(first.headers.get("cache-control"), "no-cache");
+  // fetch() adds "Cache-Control: no-cache" to conditional requests unless
+  // told otherwise, which would force a full response.
+  const again = await fetch(`${app.url}/`, {
+    headers: { "If-None-Match": etag, "Cache-Control": "max-age=0" },
+  });
+  assert.equal(again.status, 304);
 });

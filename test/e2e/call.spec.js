@@ -28,6 +28,7 @@ test("two people see and hear each other", async ({ openUser, room }) => {
   );
   expect(remoteHasAudio).toBe(true);
   await expect(alice.locator("#participant-count")).toHaveText("2 in call");
+  await expect(alice).toHaveTitle("(2) Meeting · VideoNChat");
   expect(alice.errors).toEqual([]);
   expect(bob.errors).toEqual([]);
 });

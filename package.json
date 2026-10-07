@@ -11,7 +11,8 @@
     "test": "node --test --test-force-exit --test-timeout=10000 \"test/server/**/*.test.js\" \"test/client/**/*.test.mjs\"",
     "test:coverage": "node --test --test-force-exit --test-timeout=10000 --experimental-test-coverage --test-coverage-include=\"app.js\" --test-coverage-include=\"src/server/**\" --test-coverage-lines=80 \"test/server/**/*.test.js\" \"test/client/**/*.test.mjs\"",
     "test:e2e": "playwright test",
-    "icons": "node scripts/build-icons.mjs"
+    "icons": "node scripts/build-icons.mjs",
+    "images": "node scripts/build-images.mjs"
   },
   "author": "Guru SriKanth",
   "license": "ISC",
