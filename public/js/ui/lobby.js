@@ -35,15 +35,20 @@ export class Lobby {
   #peekTimer = null;
   #picker;
   #joining = false;
+  #locked = false;
+  #onKnock;
 
-  // peek() resolves to { ok, count, full }; onJoin(name) resolves to true
-  // once in the call (false to stay in the lobby). toggleMic() and
-  // toggleCamera() are shared with the call's own buttons, as is
-  // flipCamera(), which switches between the front and back cameras.
-  constructor({ media, initialName, peek, onJoin, toggleMic, toggleCamera, flipCamera }) {
+  // peek() resolves to { ok, count, full, locked }; onJoin(name) resolves
+  // to true once in the call (false to stay in the lobby). For a locked
+  // meeting, onKnock(name) asks the host instead, and resolves to true once
+  // let in, "denied", or false. toggleMic() and toggleCamera() are shared
+  // with the call's own buttons, as is flipCamera(), which switches between
+  // the front and back cameras.
+  constructor({ media, initialName, peek, onJoin, onKnock, toggleMic, toggleCamera, flipCamera }) {
     this.#media = media;
     this.#peek = peek;
     this.#onJoin = onJoin;
+    this.#onKnock = onKnock;
 
     $("lobby-name").value = initialName;
     this.#updateInitials();
@@ -158,14 +163,25 @@ export class Lobby {
 
   async #refreshRoomInfo() {
     const reply = await this.#peek();
+    if (this.#joining) return; // a waiting message is showing
     const info = $("room-info");
     if (!reply.ok) {
       info.textContent = "";
       return;
     }
+    this.setLocked(reply.locked);
     if (reply.full) info.textContent = strings.lobby.roomFull;
+    else if (reply.locked) info.textContent = strings.lobby.locked;
     else if (reply.count === 0) info.textContent = strings.lobby.nobodyHere;
     else info.textContent = strings.lobby.peopleHere(reply.count);
+  }
+
+  // A locked meeting is joined by asking the host.
+  setLocked(locked) {
+    this.#locked = Boolean(locked);
+    if (this.#joining) return;
+    $("join-button").textContent = this.#locked ? strings.lobby.askToJoin : strings.lobby.joinNow;
+    if (this.#locked) $("room-info").textContent = strings.lobby.locked;
   }
 
   async #join() {
@@ -181,12 +197,20 @@ export class Lobby {
     this.#joining = true;
     const button = $("join-button");
     button.disabled = true;
-    button.textContent = strings.lobby.joining;
-    const joined = await this.#onJoin(name);
-    if (!joined) {
-      button.disabled = false;
-      button.textContent = strings.lobby.joinNow;
+    let result;
+    if (this.#locked) {
+      button.textContent = strings.lobby.asking;
+      $("room-info").textContent = strings.lobby.waiting;
+      result = await this.#onKnock(name);
+    } else {
+      button.textContent = strings.lobby.joining;
+      result = await this.#onJoin(name);
     }
     this.#joining = false;
+    if (result !== true) {
+      button.disabled = false;
+      this.setLocked(this.#locked);
+      if (result === "denied") $("room-info").textContent = strings.lobby.denied;
+    }
   }
 }

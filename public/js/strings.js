@@ -23,6 +23,11 @@ export const strings = {
     timeout: "no response from the server",
     "empty-message": "the message is empty",
     "room-full": "the meeting is full",
+    "room-locked": "the meeting is locked",
+    "not-host": "only the host can do that",
+    "unknown-participant": "they're no longer in the meeting",
+    "unknown-knock": "they're no longer waiting",
+    "too-many-knocks": "too many people are waiting already",
   },
 
   home: {
@@ -35,6 +40,11 @@ export const strings = {
     joining: "Joining…",
     joinNow: "Join now",
     roomFull: "This meeting is full right now.",
+    locked: "This meeting is locked. Ask to join, and the host will let you in.",
+    askToJoin: "Ask to join",
+    asking: "Asking to join…",
+    waiting: "Waiting for the host to let you in…",
+    denied: "The host didn't let you in.",
     nobodyHere: "No one else is here yet.",
     peopleHere: (count) =>
       plural(count, {
@@ -134,10 +144,42 @@ export const strings = {
     confirmBody: "You can rejoin with the same link.",
     confirm: "Leave",
     duration: (words) => `You were in the meeting for ${words}.`,
+    removedTitle: "You were removed from the meeting",
+    removedBody: "The host removed you. You can still start a new meeting.",
   },
 
   dialog: {
     cancel: "Cancel",
+  },
+
+  host: {
+    label: "Host",
+    youAreHost: "You're now the host",
+    lock: "Lock meeting",
+    lockHint: "New people have to ask to join, and you let them in.",
+    locked: "The meeting is locked",
+    unlocked: "The meeting is unlocked",
+    lockedBadge: "Locked",
+    actionsFor: (name) => `Options for ${name}`,
+    mute: "Mute",
+    askUnmute: "Ask to unmute",
+    lowerHand: "Lower hand",
+    remove: "Remove from meeting",
+    removeTitle: (name) => `Remove ${name}?`,
+    removeBody: "They can rejoin with the link unless you lock the meeting.",
+    removed: (name) => `${name} was removed`,
+    asked: (name) => `Asked ${name} to unmute`,
+    mutedBy: (name) => `${name} muted you`,
+    askedBy: (name) => `${name} asks you to unmute`,
+    askedBody: "Only you can turn your microphone on.",
+    stayMuted: "Stay muted",
+    unmute: "Unmute",
+    waitingTitle: "Waiting to join",
+    wantsToJoin: (name) => `${name} wants to join`,
+    admit: "Admit",
+    deny: "Deny",
+    admitName: (name) => `Admit ${name}`,
+    denyName: (name) => `Deny ${name}`,
   },
 
   hands: {
@@ -147,6 +189,7 @@ export const strings = {
     yoursUp: "Your hand is raised",
     yoursDown: "Your hand is lowered",
     state: "hand raised",
+    loweredByHost: "The host lowered your hand",
   },
 
   reactions: {

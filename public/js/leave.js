@@ -6,8 +6,15 @@ import { strings } from "./strings.js";
 
 const LAST_CALL_KEY = "videonchat:last-call";
 
-const room = new URLSearchParams(location.search).get("room");
-if (room && isMeetingCode(room)) {
+const params = new URLSearchParams(location.search);
+const room = params.get("room");
+const removed = params.get("reason") === "removed";
+
+if (removed) {
+  document.getElementById("leave-title").textContent = strings.leave.removedTitle;
+  document.getElementById("leave-body").textContent = strings.leave.removedBody;
+  document.title = `${strings.leave.removedTitle} · VideoNChat`;
+} else if (room && isMeetingCode(room)) {
   const rejoin = document.getElementById("rejoin");
   rejoin.href = `/${encodeURIComponent(room)}`;
   rejoin.hidden = false;

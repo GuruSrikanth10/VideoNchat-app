@@ -66,7 +66,12 @@ const chat = new Chat({
     if (joined) socket.emit("chat:typing", { typing });
   },
 });
-const people = new People($("people-list"));
+const people = new People({
+  list: $("people-list"),
+  menu: $("person-menu"),
+  onAction: hostAction,
+});
+const knocks = new Map(); // knock ID -> name: people waiting to be let in
 
 // ---------------------------------------------------------------- joining
 
@@ -80,6 +85,7 @@ async function main() {
     initialName: local.get(NAME_KEY) ?? "",
     peek: () => request(socket, "room:peek", { roomId }),
     onJoin: enterCall,
+    onKnock: askToJoin,
     toggleMic,
     toggleCamera,
     flipCamera,
@@ -87,11 +93,12 @@ async function main() {
   await lobby.start();
 }
 
-// Called from the lobby. Resolves to true once in the call.
-async function enterCall(chosenName) {
+// Called from the lobby. Resolves to true once in the call. A ticket
+// from a host gets you into a locked meeting.
+async function enterCall(chosenName, { ticket } = {}) {
   name = chosenName;
   local.set(NAME_KEY, name);
-  if (!(await join())) return false;
+  if (!(await join({ ticket }))) return false;
 
   lobby.destroy();
   callStartedAt = Date.now();
@@ -109,12 +116,39 @@ async function enterCall(chosenName) {
   return true;
 }
 
+// For a locked meeting: asks the host, then joins if let in. Resolves to
+// true once in the call, "denied", or false.
+async function askToJoin(chosenName) {
+  name = chosenName;
+  local.set(NAME_KEY, name);
+  const reply = await request(socket, "room:knock", { roomId, name });
+  if (!reply.ok) {
+    if (reply.error === "not-locked") return enterCall(name); // unlocked meanwhile
+    toast(strings.join.failed(describeError(reply.error)), { tone: "error" });
+    return false;
+  }
+  const answer = await new Promise((resolve) => {
+    const answered = (result) => {
+      socket.off("knock:answered", answered);
+      socket.off("disconnect", dropped);
+      resolve(result);
+    };
+    const dropped = () => answered(null);
+    socket.on("knock:answered", answered);
+    socket.on("disconnect", dropped);
+  });
+  if (!answer) return false; // disconnected while waiting: ask again
+  if (!answer.admitted) return "denied";
+  return enterCall(name, { ticket: answer.ticket ?? undefined });
+}
+
 // Resolves to true if we're in the room.
-async function join() {
+async function join({ ticket } = {}) {
   const reply = await request(socket, "room:join", {
     roomId,
     name,
     session: session.get(SESSION_KEY) ?? undefined,
+    ticket,
   });
   if (!reply.ok) {
     handleJoinError(reply.error);
@@ -150,6 +184,10 @@ async function join() {
     if (!resumed) mesh.call(participant.id);
   }
   for (const message of reply.history) chat.add(message);
+  setLocked(reply.locked);
+  knocks.clear();
+  for (const knock of reply.knocks ?? []) knocks.set(knock.id, knock.name);
+  renderKnocks();
 
   joined = true;
   sendMediaState();
@@ -180,7 +218,9 @@ function sendSignal(signal) {
 function handleJoinError(error) {
   if (!self) {
     // Still in the lobby: let the person try again from there.
-    if (error === "room-full") {
+    if (error === "room-locked") {
+      lobby.setLocked(true);
+    } else if (error === "room-full") {
       toast(strings.join.roomFull, { tone: "warning" });
     } else {
       toast(strings.join.failed(describeError(error)), { tone: "error" });
@@ -196,6 +236,14 @@ function handleJoinError(error) {
         { label: strings.join.startNew, value: "new", tone: "primary", autofocus: true },
       ],
     }).then((choice) => (choice === "new" ? location.assign("/") : location.reload()));
+  }
+  if (error === "room-locked") {
+    // Away too long, and the meeting was locked meanwhile: ask again.
+    return choiceDialog({
+      title: strings.host.locked,
+      body: strings.lobby.locked,
+      choices: [{ label: strings.lobby.askToJoin, value: "ask", tone: "primary", autofocus: true }],
+    }).then(() => location.reload());
   }
   showBanner(strings.join.retrying(describeError(error)));
   setTimeout(join, 3000);
@@ -267,18 +315,23 @@ function showRemoteMedia(id) {
 
 function renderPeople() {
   $("people-heading").textContent = strings.call.peopleHeading(participants.size + 1);
-  people.render([
-    {
-      id: "self",
-      name,
-      self: true,
-      audio: media.micEnabled && Boolean(media.mic),
-      video: media.cameraEnabled && Boolean(media.camera),
-      screen: share.active,
-      hand: handRaisedAt,
-    },
-    ...participants.values(),
-  ]);
+  $("host-tools").hidden = !self?.host;
+  people.render(
+    [
+      {
+        id: "self",
+        name,
+        self: true,
+        host: Boolean(self?.host),
+        audio: media.micEnabled && Boolean(media.mic),
+        video: media.cameraEnabled && Boolean(media.camera),
+        screen: share.active,
+        hand: handRaisedAt,
+      },
+      ...participants.values(),
+    ],
+    { canManage: Boolean(self?.host) },
+  );
 }
 
 function updateCount() {
@@ -292,7 +345,39 @@ function updateCount() {
 // ------------------------------------------------------------ server events
 
 socket.on("participant:joined", (participant) => addParticipant(participant));
-socket.on("participant:updated", (participant) => updateParticipant(participant));
+socket.on("participant:updated", (participant) => {
+  if (participant.id === self?.id) updateSelf(participant);
+  else updateParticipant(participant);
+});
+socket.on("room:updated", ({ locked }) => {
+  setLocked(locked);
+  toast(locked ? strings.host.locked : strings.host.unlocked);
+});
+socket.on("knock:request", ({ id, name: knocker }) => {
+  knocks.set(id, knocker);
+  renderKnocks();
+});
+socket.on("knock:resolved", ({ id }) => {
+  knocks.delete(id);
+  renderKnocks();
+});
+socket.on("host:mute", ({ by }) => {
+  if (media.micEnabled) media.setMicEnabled(false);
+  toast(strings.host.mutedBy(by), { tone: "warning" });
+});
+socket.on("host:ask-unmute", async ({ by }) => {
+  if (media.micEnabled || dialogOpen()) return;
+  const choice = await choiceDialog({
+    title: strings.host.askedBy(by),
+    body: strings.host.askedBody,
+    choices: [
+      { label: strings.host.stayMuted, value: "stay" },
+      { label: strings.host.unmute, value: "unmute", tone: "primary", autofocus: true },
+    ],
+  });
+  if (choice === "unmute") media.setMicEnabled(true);
+});
+socket.on("room:removed", () => leave({ reason: "removed" }));
 socket.on("participant:left", ({ id }) => removeParticipant(id));
 socket.on("rtc:signal", (signal) => mesh?.handleSignal(signal));
 socket.on("chat:message", (message) => chat.add(message));
@@ -527,6 +612,98 @@ async function setHand(raised) {
   if (changed) announce(raised ? strings.hands.yoursUp : strings.hands.yoursDown);
 }
 
+// ------------------------------------------------------------------- host
+
+// Changes the server made to you: becoming host, or a host lowering your
+// hand.
+function updateSelf(view) {
+  const becameHost = view.host && !self.host;
+  self = { ...self, host: view.host };
+  if (becameHost) toast(strings.host.youAreHost, { tone: "success" });
+  if (!view.hand && handRaisedAt) {
+    handRaisedAt = null;
+    reactionMenu.setHand(false);
+    $("hand-badge").hidden = true;
+    tiles.upsert("self", { hand: false });
+    announce(strings.hands.loweredByHost);
+  }
+  renderPeople();
+  renderKnocks();
+}
+
+function setLocked(locked) {
+  $("lock-state").hidden = !locked;
+  $("lock-toggle").checked = Boolean(locked);
+}
+
+$("lock-toggle").addEventListener("change", async (event) => {
+  const locked = event.target.checked;
+  const reply = await request(socket, "room:lock", { locked });
+  if (!reply.ok) {
+    event.target.checked = !locked;
+    toast(describeError(reply.error), { tone: "warning" });
+  }
+});
+
+// Hosts see who is waiting to be let in.
+function renderKnocks() {
+  const visible = Boolean(self?.host) && knocks.size > 0;
+  $("knocks").hidden = !visible;
+  $("knock-list").replaceChildren(
+    ...[...knocks].map(([id, knocker]) => {
+      const item = document.createElement("li");
+      item.className = "knock";
+      const text = document.createElement("span");
+      text.className = "knock__text";
+      text.textContent = strings.host.wantsToJoin(knocker);
+      const answer = (admit, label, ariaLabel, tone) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `btn btn--${tone} knock__button`;
+        button.textContent = label;
+        button.setAttribute("aria-label", ariaLabel);
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          const reply = await request(socket, "knock:answer", { id, admit });
+          if (!reply.ok) toast(describeError(reply.error), { tone: "warning" });
+          knocks.delete(id);
+          renderKnocks();
+        });
+        return button;
+      };
+      item.append(
+        text,
+        answer(false, strings.host.deny, strings.host.denyName(knocker), "secondary"),
+        answer(true, strings.host.admit, strings.host.admitName(knocker), "primary"),
+      );
+      return item;
+    }),
+  );
+}
+
+// Actions from a person's menu in the People panel.
+async function hostAction(action, person) {
+  if (action === "remove") {
+    const ok = await confirmDialog({
+      title: strings.host.removeTitle(person.name),
+      body: strings.host.removeBody,
+      confirmLabel: strings.host.remove,
+      tone: "danger",
+    });
+    if (!ok) return;
+  }
+  const event = {
+    mute: "host:mute",
+    askUnmute: "host:ask-unmute",
+    lowerHand: "host:lower-hand",
+    remove: "host:remove",
+  }[action];
+  const reply = await request(socket, event, { id: person.id });
+  if (!reply.ok) return toast(describeError(reply.error), { tone: "warning" });
+  if (action === "askUnmute") toast(strings.host.asked(person.name));
+  if (action === "remove") toast(strings.host.removed(person.name));
+}
+
 // Side panels (chat, people): at most one is open at a time.
 // People has two toggles: its control button and the participant count.
 const PANELS = {
@@ -688,10 +865,10 @@ $("leave").addEventListener("click", async () => {
   if (ok) leave();
 });
 
-async function leave() {
+async function leave({ reason } = {}) {
   leaving = true;
   joined = false;
-  await request(socket, "room:leave", undefined, 2000);
+  if (!reason) await request(socket, "room:leave", undefined, 2000);
   session.remove(SESSION_KEY);
   // For the leave page: how long the call lasted.
   session.set(
@@ -702,7 +879,8 @@ async function leave() {
   share.stop();
   media.stop();
   socket.disconnect();
-  location.assign(`/leave?room=${encodeURIComponent(roomId)}`);
+  const query = new URLSearchParams({ room: roomId, ...(reason ? { reason } : {}) });
+  location.assign(`/leave?${query}`);
 }
 
 // Closing the tab counts as leaving straight away (no grace period).

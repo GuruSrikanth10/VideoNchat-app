@@ -1,5 +1,5 @@
 const AxeBuilder = require("@axe-core/playwright").default;
-const { test, expect, joinMeeting, openChat } = require("./support");
+const { test, expect, joinMeeting, openChat, openPeople } = require("./support");
 
 test("the meeting page has no axe-core violations", async ({ openUser, room }) => {
   const page = await openUser();
@@ -7,6 +7,22 @@ test("the meeting page has no axe-core violations", async ({ openUser, room }) =
   await openChat(page);
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+});
+
+test("People, host tools and the menus have no axe-core violations", async ({ openUser, room }) => {
+  const host = await openUser();
+  const guest = await openUser();
+  await joinMeeting(host, room, "Ada");
+  await joinMeeting(guest, room, "Grace");
+  await guest.keyboard.press("Control+Alt+h");
+  await openPeople(host);
+  await host.getByRole("button", { name: "Options for Grace" }).click();
+  const withMenu = await new AxeBuilder({ page: host }).analyze();
+  expect(withMenu.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+  await host.keyboard.press("Escape");
+  await host.getByRole("button", { name: "React" }).click();
+  const withReactions = await new AxeBuilder({ page: host }).analyze();
+  expect(withReactions.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
 });
 
 test("the lobby and leave page have no axe-core violations", async ({ openUser, room }) => {

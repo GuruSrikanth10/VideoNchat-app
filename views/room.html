@@ -38,6 +38,10 @@
         <span class="visually-hidden">(opens in a new tab)</span>
       </a>
       <div class="topbar__info">
+        <span id="lock-state" class="pill pill--locked" hidden>
+          <svg data-icon="lock"></svg>
+          Locked
+        </span>
         <button
           id="people-count"
           class="pill pill--button"
@@ -184,11 +188,39 @@
             <svg data-icon="x"></svg>
           </button>
         </header>
+        <div id="host-tools" class="host-tools" hidden>
+          <label class="switch">
+            <input id="lock-toggle" type="checkbox" role="switch" aria-describedby="lock-hint" />
+            <span class="switch__track" aria-hidden="true"></span>
+            <span class="switch__label">Lock meeting</span>
+          </label>
+          <p id="lock-hint" class="host-tools__hint">
+            New people have to ask to join, and you let them in.
+          </p>
+        </div>
         <button id="people-invite" class="btn btn--secondary people__invite" type="button">
           <svg data-icon="user-plus"></svg>
           Invite people
         </button>
         <ul id="people-list" class="people"></ul>
+        <div id="person-menu" class="menu" popover>
+          <button type="button" class="menu__item" data-action="mute">
+            <svg data-icon="mic-off"></svg>
+            Mute
+          </button>
+          <button type="button" class="menu__item" data-action="askUnmute">
+            <svg data-icon="mic"></svg>
+            Ask to unmute
+          </button>
+          <button type="button" class="menu__item" data-action="lowerHand">
+            <svg data-icon="hand"></svg>
+            Lower hand
+          </button>
+          <button type="button" class="menu__item menu__item--danger" data-action="remove">
+            <svg data-icon="user-x"></svg>
+            Remove from meeting
+          </button>
+        </div>
       </aside>
     </main>
 
@@ -211,6 +243,18 @@
           <span class="control__label">React</span>
           <span id="hand-badge" class="badge badge--hand" hidden>✋</span>
         </button>
+        <div id="reactions" class="reactions" popover aria-label="Reactions">
+          <button id="raise-hand" class="reactions__hand" type="button">
+            <svg data-icon="hand"></svg>
+            <span class="reactions__hand-label">Raise hand</span>
+          </button>
+          <div
+            id="reaction-buttons"
+            class="reactions__emoji"
+            role="group"
+            aria-label="Send a reaction"
+          ></div>
+        </div>
       </div>
       <div class="controls__group">
         <button
@@ -249,18 +293,10 @@
       </button>
     </nav>
 
-    <div id="reactions" class="reactions" popover aria-label="Reactions">
-      <button id="raise-hand" class="reactions__hand" type="button">
-        <svg data-icon="hand"></svg>
-        <span class="reactions__hand-label">Raise hand</span>
-      </button>
-      <div
-        id="reaction-buttons"
-        class="reactions__emoji"
-        role="group"
-        aria-label="Send a reaction"
-      ></div>
-    </div>
+    <section id="knocks" class="knocks" aria-labelledby="knocks-title" hidden>
+      <h2 id="knocks-title" class="visually-hidden">Waiting to join</h2>
+      <ul id="knock-list" class="knocks__list" aria-live="polite"></ul>
+    </section>
 
     <dialog id="settings-dialog" class="dialog" aria-labelledby="settings-title">
       <form method="dialog">
