@@ -1,36 +1,43 @@
-const currentLink = window.location.host + "/";
-console.log(currentLink);
-
-const socket = io(currentLink);
+const socket = io();
 
 const videoGrid = document.getElementById("video-grid");
 const myVideo = document.createElement("video");
 myVideo.muted = true;
+myVideo.classList.add("self-view");
 
 var user;
 // Proves to the server that a re-join after a reconnect comes from this tab.
 const tabSecret = crypto.randomUUID();
+
+const NAME_KEY = "videonchat:name";
+const readSavedName = () => {
+  try {
+    return localStorage.getItem(NAME_KEY) || "";
+  } catch {
+    return "";
+  }
+};
 
 Swal.fire({
   title: "Enter your Name",
   input: "text",
   inputLabel: "User Name 😎",
   inputPlaceholder: "Your Name",
+  inputValue: readSavedName(),
+  inputAttributes: { maxlength: "40", autocomplete: "name" },
   confirmButtonText: "Join Call",
   confirmButtonColor: "#648c11",
   backdrop: "#733635",
   allowOutsideClick: false,
-  inputValidator: (value) => {
-    return new Promise((resolve) => {
-      if (value) {
-        resolve();
-      } else {
-        resolve("Your name cannot be empty!");
-      }
-    });
-  },
+  allowEscapeKey: false, // closing the prompt used to join as "null"
+  inputValidator: (value) => (value.trim() ? undefined : "Your name cannot be empty!"),
 }).then((result) => {
-  user = result.value;
+  user = result.value.trim().slice(0, 40);
+  try {
+    localStorage.setItem(NAME_KEY, user);
+  } catch {
+    // private mode: the name just isn't remembered
+  }
   // Signalling goes through the PeerJS server mounted at /peerjs on this
   // same server, so it works locally and in production without edits.
   const secure = location.protocol === "https:";
@@ -185,14 +192,15 @@ Swal.fire({
     });
   }
 
-  const addVideoStream = (video, stream) => {
+  // No native controls: they let people unmute their own preview or pause
+  // someone else. playsInline keeps iPhones from going fullscreen.
+  function addVideoStream(video, stream) {
     video.srcObject = stream;
-    video.controls = true;
-    video.addEventListener("loadedmetadata", () => {
-      video.play();
-    });
-    videoGrid.append(video);
-  };
+    video.playsInline = true;
+    video.autoplay = true;
+    if (!video.isConnected) videoGrid.append(video);
+    video.play().catch(() => {}); // autoplay is allowed after the Join click
+  }
 
   //****************************// AUDIO HANDLING //****************************//
 
@@ -223,7 +231,6 @@ Swal.fire({
   const unsetMuteButton = () => {
     const html = `<i class="fas fa-microphone"></i>`;
     muteButton.innerHTML = html;
-    console.log("You are Unmuted");
     Swal.fire({
       position: "top-end",
       text: "Your mic is on",
@@ -236,7 +243,6 @@ Swal.fire({
   const setMuteButton = () => {
     const html = `<i class="fas fa-microphone-slash" style="color:red;"></i>`;
     muteButton.innerHTML = html;
-    console.log("Muted");
     Swal.fire({
       position: "top-end",
       text: "You are muted",
@@ -265,7 +271,6 @@ Swal.fire({
   const setVideoButton = () => {
     const html = `<i class="fas fa-video"></i>`;
     stopVideo.innerHTML = html;
-    console.log("Cammera Mode ON");
     Swal.fire({
       position: "top-end",
       text: "Your cam is on",
@@ -278,7 +283,6 @@ Swal.fire({
   const unsetVideoButton = () => {
     const html = `<i class="fas fa-video-slash" style="color:red;"></i>`;
     stopVideo.innerHTML = html;
-    console.log("Cammera Mode OFF");
     Swal.fire({
       position: "top-end",
       text: "Your cam is off",
@@ -357,35 +361,59 @@ Swal.fire({
   var messages = document.querySelector(".messages");
   var feedback = document.getElementById("feedback");
 
-  // debugging code
-  // const socket = io();
+  // Names of people typing right now, each expiring if no update arrives.
+  const typers = new Map(); // name -> timeout id
 
-  // debugging code
+  function renderTyping() {
+    const names = [...typers.keys()];
+    if (names.length === 0) feedback.textContent = "";
+    else if (names.length === 1) feedback.textContent = names[0] + " is typing…";
+    else if (names.length === 2) feedback.textContent = names.join(" and ") + " are typing…";
+    else feedback.textContent = "Several people are typing…";
+  }
 
-  socket.on("typing", function (data) {
-    feedback.textContent = data + " is typing a message...";
-  });
+  function setTyping(name, isTyping) {
+    clearTimeout(typers.get(name));
+    if (isTyping) typers.set(name, setTimeout(() => setTyping(name, false), 4000));
+    else typers.delete(name);
+    renderTyping();
+  }
 
-  socket.on("stoppedTyping", () => {
-    feedback.innerHTML = "";
-  });
+  socket.on("typing", (name) => setTyping(name, true));
+  socket.on("stoppedTyping", (name) => setTyping(name, false));
+  let typingSentAt = 0;
+  let typingIdle;
+
+  function stopTyping() {
+    clearTimeout(typingIdle);
+    if (typingSentAt) socket.emit("stoppedTyping");
+    typingSentAt = 0;
+  }
+
   function sendCurrentMessage() {
     const message = text.value.trim();
     if (message) socket.emit("message", message);
     text.value = ""; //Clear the textbox
+    stopTyping();
   }
 
   sendMessage.addEventListener("click", sendCurrentMessage);
 
-  //Send the message if the user presses Enter
-  text.addEventListener("keydown", (K) => {
-    if (K.key === "Enter") {
-      sendCurrentMessage();
-    } else if (text.value.length !== 0) {
+  // The input event sees the updated value (keydown didn't), and "typing"
+  // is sent at most every 2 seconds instead of on every keystroke.
+  text.addEventListener("input", () => {
+    clearTimeout(typingIdle);
+    if (!text.value.trim()) return stopTyping();
+    if (Date.now() - typingSentAt > 2000) {
       socket.emit("typing");
-    } else if (text.value.length === 0) {
-      socket.emit("stoppedTyping");
+      typingSentAt = Date.now();
     }
+    typingIdle = setTimeout(stopTyping, 3000);
+  });
+
+  //Send the message if the user presses Enter (but not mid-IME composition)
+  text.addEventListener("keydown", (K) => {
+    if (K.key === "Enter" && !K.isComposing) sendCurrentMessage();
   });
   // Builds a chat entry from DOM nodes. Remote text is only ever assigned to
   // textContent, so messages and names can never inject HTML or scripts.
@@ -419,7 +447,7 @@ Swal.fire({
   }
 
   socket.on("createMessage", (message, userName, senderId) => {
-    feedback.textContent = "";
+    setTyping(userName, false);
     appendMessage(message, userName, senderId === currentUser);
 
     //For scrolling to bottom
@@ -451,38 +479,42 @@ Swal.fire({
   var networkInfo = document.getElementById("network-content");
 
   networkInfo.addEventListener("click", () => {
-    var currentPing = ResponseTime.innerHTML;
+    var currentPing = ResponseTime.textContent;
     Swal.fire({
       title: "Your ping is " + currentPing,
-      text: "The lesser the better 🧐",
+      text: "Round trip to the server. The lesser the better 🧐",
       icon: "info",
     });
   });
-  function claculateRTT() {
-    var networkInformation = navigator.connection;
-    var ping = networkInformation.rtt;
-    ResponseTime.innerHTML = ping + " ms";
-    if (ping < 200) {
-      networkInfo.style.backgroundColor = "#009940";
-    } else if (ping < 350) {
-      networkInfo.style.backgroundColor = "yellow";
-    } else {
-      networkInfo.style.backgroundColor = "red";
-    }
+
+  // navigator.connection only exists in Chromium (and isn't the server
+  // round trip anyway); reading it crashed setup in Firefox and Safari.
+  function measurePing() {
+    const started = performance.now();
+    socket.timeout(5000).emit("net:ping", (err) => {
+      if (err) {
+        ResponseTime.textContent = "offline";
+        networkInfo.style.backgroundColor = "red";
+        return;
+      }
+      const ping = Math.round(performance.now() - started);
+      ResponseTime.textContent = ping + " ms";
+      if (ping < 200) {
+        networkInfo.style.backgroundColor = "#009940";
+      } else if (ping < 350) {
+        networkInfo.style.backgroundColor = "yellow";
+      } else {
+        networkInfo.style.backgroundColor = "red";
+      }
+    });
   }
 
-  function recurciveCalculate() {
-    claculateRTT();
-    console.log("Calculating ping ...");
-    setTimeout(recurciveCalculate, 5000);
-  }
-
-  recurciveCalculate();
+  measurePing();
+  setInterval(measurePing, 5000);
 
   //****************************// LEAVE MEETING //****************************//
 
   var leaveButton = document.getElementById("leave-meet");
-  //console.log(leaveButton);
   leaveButton.addEventListener("click", () => {
     Swal.fire({
       title: "Are you sure?",
@@ -494,9 +526,10 @@ Swal.fire({
       reverseButtons: true,
     }).then((result) => {
       if (result.isConfirmed) {
-        window.location = "http://" + currentLink + "leave";
+        myVideoStream?.getTracks().forEach((track) => track.stop());
+        screenTrack?.stop();
+        location.assign("/leave");
       }
     });
   });
 });
-// http://localhost:3000/leave

@@ -132,9 +132,11 @@ video {
   margin: 0.5rem;
   width: 400px;
   object-fit: cover;
-  /* transform: rotateY(180deg); */
-  /* -webkit-transform: rotateY(180deg); */
-  /* -moz-transform: rotateY(180deg); */
+}
+
+/* Your own preview is mirrored, like looking in a mirror. */
+.self-view {
+  transform: scaleX(-1);
 }
 
 .options {
