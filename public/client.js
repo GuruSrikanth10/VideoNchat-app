@@ -28,17 +28,14 @@ Swal.fire({
   },
 }).then((result) => {
   user = result.value;
-  /*
-Basically we need a peerServer for generating a new Id for each user.
-For testing locally we can run a server on some port by using this command
-"peerjs --port 9000 --key peerjs --path /myapp" => This creates a peerserver on localhost:9000
-*/
+  // Signalling goes through the PeerJS server mounted at /peerjs on this
+  // same server, so it works locally and in production without edits.
+  const secure = location.protocol === "https:";
   const peer = new Peer(undefined, {
-   
-      host:"peerjs-server-kj2n.onrender.com",
-    // host: "https://peerjs.com/peerserver",
-    // port: 9000 ,
-    // path: "/myapp",
+    host: location.hostname,
+    port: Number(location.port) || (secure ? 443 : 80),
+    path: "/peerjs",
+    secure,
   });
 
   var peers = {};

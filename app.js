@@ -3,7 +3,7 @@ const app = express();
 const { v4: uuidv4 } = require("uuid");
 
 //****************************//PORT //****************************//
-const port =  3000 || process.env.PORT; // While hosting 3000 may not be available
+const port = Number(process.env.PORT) || 3000; // Hosts such as Render set PORT
 const server = app.listen(port, () =>
   console.log(`Listening on port ${port}..`)
 );
@@ -18,8 +18,21 @@ const io = require("socket.io")(server, {
 });
 
 const { ExpressPeerServer } = require("peer");
+const { WebSocketServer } = require("ws");
+
+// PeerJS must only take over WebSocket upgrades for its own path. By default
+// its WebSocket server answers every other upgrade (including Socket.IO's)
+// with "400 Bad Request", which forces Socket.IO back to long-polling.
 const peerServer = ExpressPeerServer(server, {
-  debug: true,
+  createWebSocketServer: (options) => {
+    const wss = new WebSocketServer({ noServer: true });
+    server.on("upgrade", (req, socket, head) => {
+      const { pathname } = new URL(req.url, "http://localhost");
+      if (pathname !== options.path) return; // not ours: Socket.IO handles it
+      wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
+    });
+    return wss;
+  },
 });
 
 app.set("view engine", "ejs");
