@@ -1030,14 +1030,25 @@ button:disabled {
 
 /* ------------------------------------------------------------ reactions */
 
-.reactions {
+/* Pop-up menus are placed by script next to their button, and stay
+   invisible for the moment before that. */
+.reactions,
+.menu {
   position: fixed;
-  inset: auto auto var(--menu-bottom, 96px) var(--menu-left, 50%);
+  inset: var(--menu-top, auto) auto auto var(--menu-left, auto);
+  margin: 0;
+}
+
+.reactions:not([data-placed]),
+.menu:not([data-placed]) {
+  visibility: hidden;
+}
+
+.reactions {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   max-width: calc(100vw - 16px);
-  margin: 0;
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
