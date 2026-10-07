@@ -43,8 +43,9 @@ export class Lobby {
 
   // peek() resolves to { ok, count, full }; onJoin(name) resolves to true
   // once in the call (false to stay in the lobby). toggleMic() and
-  // toggleCamera() are shared with the call's own buttons.
-  constructor({ media, initialName, peek, onJoin, toggleMic, toggleCamera }) {
+  // toggleCamera() are shared with the call's own buttons, as is
+  // flipCamera(), which switches between the front and back cameras.
+  constructor({ media, initialName, peek, onJoin, toggleMic, toggleCamera, flipCamera }) {
     this.#media = media;
     this.#peek = peek;
     this.#onJoin = onJoin;
@@ -59,6 +60,7 @@ export class Lobby {
 
     $("lobby-mic").addEventListener("click", toggleMic);
     $("lobby-camera").addEventListener("click", toggleCamera);
+    $("lobby-flip").addEventListener("click", flipCamera);
     $("media-retry").addEventListener("click", () => this.#startMedia());
     $("lobby-form").addEventListener("submit", (event) => {
       event.preventDefault();
@@ -124,6 +126,8 @@ export class Lobby {
       video.srcObject = null;
     }
     video.closest(".tile").dataset.videoOff = String(!cameraOn);
+    // Only the front camera is shown like a mirror.
+    video.classList.toggle("tile__video--mirrored", media.facing !== "environment");
 
     const mic = $("lobby-mic");
     mic.disabled = !media.mic;

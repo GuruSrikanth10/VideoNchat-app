@@ -14,6 +14,8 @@ export class LocalMedia extends EventTarget {
   deviceIds = { audioinput: null, videoinput: null, audiooutput: null };
   // Devices chosen last time: asked for, but not required, at start.
   preferred = {};
+  // "user" (front) or "environment" (back) once someone switches cameras.
+  facingMode = null;
 
   // The self view shows whatever the camera currently is.
   stream = new MediaStream();
@@ -107,9 +109,46 @@ export class LocalMedia extends EventTarget {
     };
   }
 
+  // Which way the camera faces, as far as we can tell.
+  get facing() {
+    return this.camera?.getSettings?.().facingMode || this.facingMode || "user";
+  }
+
+  // Switches between the front and back cameras (on phones and tablets).
+  async flipCamera() {
+    const previous = this.facing;
+    const next = previous === "environment" ? "user" : "environment";
+    this.deviceIds.videoinput = null;
+    if (!this.cameraEnabled || !this.camera) {
+      this.facingMode = next; // used next time the camera starts
+      this.#emit("change");
+      return true;
+    }
+    // Many phones can't open both cameras at once, so stop this one first.
+    this.camera.stop();
+    for (const facingMode of [{ exact: next }, previous]) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { ...VIDEO, facingMode },
+        });
+        this.facingMode = facingMode === previous ? previous : next;
+        this.#setTrack("camera", stream.getVideoTracks()[0]);
+        this.#emit("change");
+        return this.facingMode === next;
+      } catch (err) {
+        this.error = err; // try to get the old camera back
+      }
+    }
+    this.cameraEnabled = false;
+    this.#setTrack("camera", null);
+    this.#emit("change");
+    return false;
+  }
+
   // Switches to another camera or microphone without leaving the call.
   async useDevice(kind, deviceId) {
     this.deviceIds[kind] = deviceId;
+    if (kind === "videoinput") this.facingMode = null; // the device decides
     if (kind === "audiooutput") {
       this.#emit("change");
       return true;
@@ -159,6 +198,7 @@ export class LocalMedia extends EventTarget {
   #constraints(kind, base, { preferred = false } = {}) {
     const chosen = this.deviceIds[kind];
     if (chosen) return { ...base, deviceId: { exact: chosen } };
+    if (kind === "videoinput" && this.facingMode) return { ...base, facingMode: this.facingMode };
     const remembered = preferred ? this.preferred[kind] : null;
     return remembered ? { ...base, deviceId: { ideal: remembered } } : base;
   }

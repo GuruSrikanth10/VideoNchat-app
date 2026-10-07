@@ -38,14 +38,18 @@ export class Tiles {
   #root;
   #tiles = new Map();
   #pinned = null;
+  #onFlipCamera;
 
-  constructor(root) {
+  // onFlipCamera() is called by your own tile's "Switch camera" button.
+  constructor(root, { onFlipCamera = () => {} } = {}) {
     this.#root = root;
+    this.#onFlipCamera = onFlipCamera;
     new ResizeObserver(() => this.#relayout()).observe(root);
   }
 
-  // Creates or updates a participant's tile.
-  upsert(id, { name, self = false, stream, audio, video, quality, stats }) {
+  // Creates or updates a participant's tile. For your own tile, `mirrored`
+  // flips the video like a mirror and `canFlip` offers a camera switch.
+  upsert(id, { name, self = false, stream, audio, video, quality, stats, mirrored, canFlip }) {
     let tile = this.#tiles.get(id);
     if (!tile) {
       tile = this.#create(id, { self });
@@ -71,6 +75,8 @@ export class Tiles {
       tile.micState.toggleAttribute("hidden", audio);
     }
     if (video !== undefined) tile.root.dataset.videoOff = String(!video);
+    if (mirrored !== undefined) tile.video.classList.toggle("tile__video--mirrored", mirrored);
+    if (canFlip !== undefined && tile.buttons.flip) tile.buttons.flip.hidden = !canFlip;
     if (quality !== undefined) {
       tile.quality.dataset.quality = quality ?? "unknown";
       tile.quality.title = describe(stats ?? { rtt: null, lossPercent: null, kbps: null }, quality);
@@ -203,10 +209,18 @@ export class Tiles {
     });
     pip.hidden = self || !document.pictureInPictureEnabled;
     actions.append(pin, fullscreen, pip);
+    const buttons = { pin, fullscreen, pip };
+    if (self) {
+      buttons.flip = this.#actionButton("switch-camera", () => this.#onFlipCamera());
+      buttons.flip.setAttribute("aria-label", "Switch camera");
+      buttons.flip.title = "Switch camera";
+      buttons.flip.hidden = true;
+      actions.append(buttons.flip);
+    }
 
     root.append(video, avatar, caption, quality, actions);
     const tile = { root, video, initials: initialsBadge, label, micState, quality, name: "", self };
-    tile.buttons = { pin, fullscreen, pip };
+    tile.buttons = buttons;
     return tile;
   }
 

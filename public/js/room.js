@@ -34,7 +34,7 @@ hydrateIcons();
 const socket = connect();
 const media = new LocalMedia();
 const share = new ScreenShare();
-const tiles = new Tiles($("tiles"));
+const tiles = new Tiles($("tiles"), { onFlipCamera: () => flipCamera() });
 const participants = new Map(); // id -> { id, name, audio, video, screen }
 const outbox = []; // signals produced while offline
 const statsHistory = new Map(); // id -> last stats summary
@@ -77,6 +77,7 @@ async function main() {
     onJoin: enterCall,
     toggleMic,
     toggleCamera,
+    flipCamera,
   });
   await lobby.start();
 }
@@ -304,11 +305,25 @@ function refreshSelfView() {
     stream: new MediaStream(media.camera ? [media.camera] : []),
     audio: media.micEnabled,
     video: media.cameraEnabled && Boolean(media.camera),
+    mirrored: media.facing !== "environment",
+    canFlip,
   });
 }
 
+// Phones and tablets with a front and a back camera get a switch button.
+let canFlip = false;
+async function updateCanFlip() {
+  const { videoinput = [] } = await media.listDevices().catch(() => ({}));
+  canFlip = matchMedia("(pointer: coarse)").matches && videoinput.length > 1;
+  $("lobby-flip").hidden = !canFlip;
+  if (joined) refreshSelfView();
+}
+navigator.mediaDevices?.addEventListener?.("devicechange", updateCanFlip);
+
 media.addEventListener("trackchange", ({ detail }) => {
   mesh?.setTrack(detail.slot, detail.track);
+  // Device labels (and so the camera count) are only known once one runs.
+  if (detail.slot === "camera" && detail.track) updateCanFlip();
   if (joined) {
     refreshSelfView();
     if (detail.slot === "mic") trackSpeaking("self", detail.track);
@@ -421,6 +436,16 @@ async function toggleMic() {
 }
 
 let cameraBusy = false;
+async function flipCamera() {
+  if (cameraBusy) return;
+  cameraBusy = true;
+  const flipped = await media.flipCamera();
+  cameraBusy = false;
+  if (!flipped) toast("Couldn't switch cameras.", { tone: "warning" });
+  else
+    announce(media.facing === "environment" ? "Using the back camera" : "Using the front camera");
+}
+
 async function toggleCamera() {
   if (cameraBusy) return null;
   cameraBusy = true;
