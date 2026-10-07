@@ -4,6 +4,7 @@
 const { randomUUID } = require("crypto");
 const { publicView } = require("./rooms");
 const { createLimiter } = require("./rate-limit");
+const { iceServersFor } = require("./ice");
 const schemas = require("./schemas");
 
 // Browsers always send Origin for WebSockets and cross-site requests; only
@@ -74,7 +75,16 @@ function attachRealtime({ io, rooms, config, logger }) {
           .map(publicView),
         history: room.history,
         maxRoomSize: rooms.maxRoomSize,
+        // Only people in a room get TURN credentials.
+        iceServers: iceServersFor(config, { user: participant.id }),
       });
+    });
+
+    // Fresh credentials for connections made late in a long meeting.
+    handle("rtc:ice-servers", (payload, reply) => {
+      const participant = current();
+      if (!participant) return reply({ ok: false, error: "not-joined" });
+      reply({ ok: true, iceServers: iceServersFor(config, { user: participant.id }) });
     });
 
     handle("room:leave", (payload, reply) => {

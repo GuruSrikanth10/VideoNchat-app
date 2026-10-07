@@ -37,6 +37,29 @@ function loadConfig(env = process.env) {
     }
   };
 
+  // ICE_SERVERS: extra servers as JSON, e.g. static TURN credentials from a
+  // provider: [{"urls": "turns:turn.example.com:443", "username": "u", "credential": "c"}]
+  const iceServers = () => {
+    const raw = env.ICE_SERVERS;
+    if (!raw) return [];
+    try {
+      const servers = JSON.parse(raw);
+      const valid =
+        Array.isArray(servers) &&
+        servers.every(
+          (s) =>
+            s &&
+            (typeof s.urls === "string" ||
+              (Array.isArray(s.urls) && s.urls.every((u) => typeof u === "string"))),
+        );
+      if (valid) return servers;
+    } catch {
+      // reported below
+    }
+    errors.push('ICE_SERVERS must be a JSON array of {"urls": ...} objects');
+    return [];
+  };
+
   // TRUST_PROXY: number of proxy hops in front of the app (Render: 1).
   const trustProxy = integer("TRUST_PROXY", 0, { min: 0, max: 10 });
 
@@ -56,6 +79,7 @@ function loadConfig(env = process.env) {
       turnUrls: list("TURN_URLS", []),
       turnSecret: env.TURN_SECRET || null,
       turnTtlSeconds: integer("TURN_TTL_SECONDS", 6 * 60 * 60, { min: 60, max: 86400 }),
+      extraServers: iceServers(),
     },
   };
 
