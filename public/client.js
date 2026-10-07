@@ -76,8 +76,7 @@ Swal.fire({
     trackCall(call);
   });
 
-  const joinRoom = () =>
-    socket.emit("join-room", ROOM_ID, currentUser, user, tabSecret);
+  const joinRoom = () => socket.emit("join-room", ROOM_ID, currentUser, user, tabSecret);
 
   // Announce ourselves only when calls can be answered, so the people
   // already in the room can call straight away.
@@ -92,7 +91,10 @@ Swal.fire({
       Swal.fire({
         icon: "error",
         title: "Couldn't connect",
-        text: "The call server is unreachable (" + (err.type || err.message) + "). Reload to try again.",
+        text:
+          "The call server is unreachable (" +
+          (err.type || err.message) +
+          "). Reload to try again.",
         confirmButtonText: "Reload",
       }).then(() => location.reload());
     });
@@ -182,7 +184,8 @@ Swal.fire({
     Swal.fire({
       icon: "warning",
       title: "You joined without camera or microphone",
-      text: (reasons[err.name] || "Your camera or microphone couldn't start.") +
+      text:
+        (reasons[err.name] || "Your camera or microphone couldn't start.") +
         " You can still see and hear the people already in the call.",
       showCancelButton: true,
       confirmButtonText: "Try again",
@@ -300,7 +303,7 @@ Swal.fire({
 
   const inviteButton = document.querySelector("#inviteButton");
 
-  inviteButton.addEventListener("click", (e) => {
+  inviteButton.addEventListener("click", () => {
     var share = document.createElement("input"),
       text = window.location.href;
     document.body.appendChild(share);
@@ -326,11 +329,9 @@ Swal.fire({
   function replaceOutgoingVideo(track) {
     return Promise.allSettled(
       [...calls.values()].map(({ call }) => {
-        const sender = call.peerConnection
-          ?.getSenders()
-          .find((s) => s.track?.kind === "video");
+        const sender = call.peerConnection?.getSenders().find((s) => s.track?.kind === "video");
         return sender?.replaceTrack(track);
-      })
+      }),
     );
   }
 
@@ -378,7 +379,11 @@ Swal.fire({
 
   function setTyping(name, isTyping) {
     clearTimeout(typers.get(name));
-    if (isTyping) typers.set(name, setTimeout(() => setTyping(name, false), 4000));
+    if (isTyping)
+      typers.set(
+        name,
+        setTimeout(() => setTyping(name, false), 4000),
+      );
     else typers.delete(name);
     renderTyping();
   }

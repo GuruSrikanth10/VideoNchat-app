@@ -5,9 +5,7 @@ const app = express();
 
 //****************************//PORT //****************************//
 const port = Number(process.env.PORT) || 3000; // Hosts such as Render set PORT
-const server = app.listen(port, () =>
-  console.log(`Listening on port ${port}..`)
-);
+const server = app.listen(port, () => console.log(`Listening on port ${port}..`));
 
 //****************************//SOCKET AND PEER SETUP //****************************//
 // The page is served from this same origin, so no CORS setup is needed.
@@ -39,7 +37,10 @@ app.use(express.static(path.join(__dirname, "public")));
 // Browser libraries are served from node_modules instead of public CDNs, so
 // versions are pinned in package-lock.json and the app doesn't depend on them.
 app.use("/vendor/peerjs", express.static(path.join(__dirname, "node_modules/peerjs/dist")));
-app.use("/vendor/sweetalert2", express.static(path.join(__dirname, "node_modules/sweetalert2/dist")));
+app.use(
+  "/vendor/sweetalert2",
+  express.static(path.join(__dirname, "node_modules/sweetalert2/dist")),
+);
 
 //****************************//GET REQUESTS //****************************//
 app.get("/", (req, res) => {
@@ -63,8 +64,7 @@ app.get("/:room", (req, res, next) => {
 
 // Room IDs, PeerJS IDs and per-tab secrets all use the same token format.
 const isToken = (value) => typeof value === "string" && TOKEN.test(value);
-const clean = (value, max) =>
-  typeof value === "string" ? value.trim().slice(0, max) : "";
+const clean = (value, max) => (typeof value === "string" ? value.trim().slice(0, max) : "");
 
 const findByPeerId = (roomId, peerId) =>
   [...(io.sockets.adapter.rooms.get(roomId) ?? [])]
