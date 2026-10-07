@@ -30,6 +30,7 @@ const $ = (id) => document.getElementById(id);
 const roomId = decodeURIComponent(location.pathname.split("/").filter(Boolean)[0] ?? "");
 const NAME_KEY = "videonchat:name";
 const SESSION_KEY = `videonchat:session:${roomId}`;
+const EFFECTS_KEY = "videonchat:effects";
 const LAST_CALL_KEY = "videonchat:last-call";
 
 hydrateIcons();
@@ -80,6 +81,11 @@ let lobby = null;
 async function main() {
   if (!roomId) return location.assign("/");
   media.preferred = rememberedDevices();
+  try {
+    Object.assign(media.effects, JSON.parse(local.get(EFFECTS_KEY) ?? "{}"));
+  } catch {
+    // nothing remembered
+  }
   lobby = new Lobby({
     media,
     initialName: local.get(NAME_KEY) ?? "",
@@ -826,7 +832,28 @@ const callDevices = new DevicePicker({
 
 $("settings").addEventListener("click", async () => {
   await callDevices.refresh();
+  $("noise-toggle").checked = media.effects.noiseSuppression;
+  $("blur-toggle").checked = media.effects.backgroundBlur;
+  $("blur-field").hidden = !media.canBlur;
   $("settings-dialog").showModal();
+});
+
+const rememberEffects = () => local.set(EFFECTS_KEY, JSON.stringify(media.effects));
+
+$("noise-toggle").addEventListener("change", async (event) => {
+  const done = await media.setNoiseSuppression(event.target.checked);
+  if (!done) toast(strings.effects.noiseFailed, { tone: "warning" });
+  rememberEffects();
+});
+
+$("blur-toggle").addEventListener("change", async (event) => {
+  const done = await media.setBackgroundBlur(event.target.checked);
+  if (!done) {
+    event.target.checked = false;
+    media.effects.backgroundBlur = false;
+    toast(strings.effects.blurFailed, { tone: "warning" });
+  }
+  rememberEffects();
 });
 
 // Unread badge while the chat is closed (or hidden on small screens).

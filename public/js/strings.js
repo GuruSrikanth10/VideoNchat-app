@@ -133,6 +133,15 @@ export const strings = {
     withShortcut: (text, keys) => `${text} (${keys})`,
   },
 
+  effects: {
+    title: "Effects",
+    noise: "Noise suppression",
+    noiseHint: "Filters out background noise, like typing and fans.",
+    blur: "Blur my background",
+    blurFailed: "Your background couldn't be blurred.",
+    noiseFailed: "Noise suppression couldn't be changed.",
+  },
+
   invite: {
     shareTitle: "Join my VideoNChat meeting",
     copied: "Invite link copied",

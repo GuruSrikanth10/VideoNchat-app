@@ -313,6 +313,28 @@
           <label for="call-audiooutput">Speaker</label>
           <select id="call-audiooutput"></select>
         </div>
+        <fieldset class="effects">
+          <legend>Effects</legend>
+          <label class="switch">
+            <input
+              id="noise-toggle"
+              type="checkbox"
+              role="switch"
+              aria-describedby="noise-hint"
+              checked
+            />
+            <span class="switch__track" aria-hidden="true"></span>
+            <span class="switch__label">Noise suppression</span>
+          </label>
+          <p id="noise-hint" class="effects__hint">
+            Filters out background noise, like typing and fans.
+          </p>
+          <label id="blur-field" class="switch" hidden>
+            <input id="blur-toggle" type="checkbox" role="switch" />
+            <span class="switch__track" aria-hidden="true"></span>
+            <span class="switch__label">Blur my background</span>
+          </label>
+        </fieldset>
         <div class="dialog__actions">
           <button id="show-shortcuts" class="btn btn--secondary" type="button">
             <svg data-icon="keyboard"></svg>

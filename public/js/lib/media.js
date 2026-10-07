@@ -16,6 +16,8 @@ export class LocalMedia extends EventTarget {
   preferred = {};
   // "user" (front) or "environment" (back) once someone switches cameras.
   facingMode = null;
+  // Audio and video effects, applied now and whenever a device restarts.
+  effects = { noiseSuppression: true, backgroundBlur: false };
 
   // The self view shows whatever the camera currently is.
   stream = new MediaStream();
@@ -178,6 +180,59 @@ export class LocalMedia extends EventTarget {
     }
   }
 
+  // Turns the microphone's noise suppression on or off.
+  async setNoiseSuppression(on) {
+    this.effects.noiseSuppression = on;
+    if (!this.mic) return true; // applied when the mic starts
+    await this.tuneMic({ noiseSuppression: on });
+    if (this.mic.getSettings().noiseSuppression === on) return true;
+    // Some browsers (Chrome) can't change it on a live track, so the same
+    // microphone is opened again. The old track has to stop first: while it
+    // runs, Chrome hands back the same source with the old setting.
+    const { deviceId } = this.mic.getSettings();
+    this.mic.stop();
+    for (const setting of [on, !on]) {
+      this.effects.noiseSuppression = setting;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            ...this.#constraints("audioinput", AUDIO),
+            ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+          },
+        });
+        const track = stream.getAudioTracks()[0];
+        track.enabled = this.micEnabled;
+        this.#setTrack("mic", track);
+        this.#emit("change");
+        return setting === on;
+      } catch (err) {
+        this.error = err; // try to get the mic back as it was
+      }
+    }
+    this.#setTrack("mic", null);
+    this.#emit("change");
+    return false;
+  }
+
+  // Whether the camera can blur the background by itself, as some browsers
+  // can on some systems. Nothing leaves the device either way.
+  get canBlur() {
+    const blur = this.camera?.getCapabilities?.().backgroundBlur;
+    return Array.isArray(blur) && blur.includes(true);
+  }
+
+  async setBackgroundBlur(on) {
+    this.effects.backgroundBlur = on;
+    if (!this.camera) return true; // applied when the camera starts
+    if (!this.canBlur) return false;
+    try {
+      await this.camera.applyConstraints({ ...this.camera.getConstraints(), backgroundBlur: on });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   // Applies a constraint (e.g. noiseSuppression) to the live microphone.
   async tuneMic(constraints) {
     try {
@@ -195,7 +250,11 @@ export class LocalMedia extends EventTarget {
 
   // An explicitly chosen device is required ("exact"); a remembered one
   // is only preferred ("ideal"), so a missing device can't break startup.
-  #constraints(kind, base, { preferred = false } = {}) {
+  #constraints(kind, defaults, { preferred = false } = {}) {
+    const base = { ...defaults };
+    if (kind === "audioinput") base.noiseSuppression = this.effects.noiseSuppression;
+    // Only asked for when wanted; browsers that can't blur ignore it.
+    if (kind === "videoinput" && this.effects.backgroundBlur) base.backgroundBlur = true;
     const chosen = this.deviceIds[kind];
     if (chosen) return { ...base, deviceId: { exact: chosen } };
     if (kind === "videoinput" && this.facingMode) return { ...base, facingMode: this.facingMode };

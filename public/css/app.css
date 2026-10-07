@@ -862,6 +862,26 @@ button:disabled {
   height: 18px;
 }
 
+.effects {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.effects legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.effects__hint {
+  margin: -4px 0 4px 54px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
 /* Host tools at the top of People: the lock switch. */
 .host-tools {
   margin: 12px 12px 0;
