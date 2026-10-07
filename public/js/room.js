@@ -12,6 +12,7 @@ import { ReactionMenu } from "./ui/reactions.js";
 import { CallRecorder, saveRecording } from "./lib/recorder.js";
 import { SpeechCaptioner } from "./lib/captions.js";
 import { CaptionDisplay } from "./ui/captions.js";
+import { FileShare, MAX_FILE_SIZE, cleanFileName } from "./lib/file-share.js";
 import { toast, announce } from "./ui/toast.js";
 import { confirmDialog, choiceDialog } from "./ui/dialog.js";
 import { hydrateIcons, setIcon } from "./ui/icons.js";
@@ -217,6 +218,7 @@ function createMesh(iceServers) {
   created.setTrack("camera", media.camera);
   created.setTrack("screen", share.track);
   created.addEventListener("track", ({ detail }) => showRemoteMedia(detail.id));
+  created.addEventListener("channel", ({ detail }) => fileShare.attach(detail.id, detail.channel));
   created.addEventListener("state", ({ detail }) => {
     if (detail.state === "failed") tiles.upsert(detail.id, { quality: "poor" });
   });
@@ -304,6 +306,7 @@ function updateParticipant(participant) {
 function removeParticipant(id, { quiet = false } = {}) {
   const participant = participants.get(id);
   captionDisplay.remove(id);
+  fileShare.detach(id);
   participants.delete(id);
   statsHistory.delete(id);
   trackSpeaking(id, null);
@@ -638,6 +641,72 @@ async function setHand(raised) {
   renderPeople();
   if (changed) announce(raised ? strings.hands.yoursUp : strings.hands.yoursDown);
 }
+
+// ------------------------------------------------------------------ files
+
+const fileShare = new FileShare();
+const transfers = new Map(); // "peer:file" -> the chat message following it
+const transferKey = ({ peerId, id }) => `${peerId}:${id}`;
+let toldAboutFiles = false;
+
+fileShare.addEventListener("incoming", ({ detail }) => {
+  const sender = participants.get(detail.peerId);
+  if (!sender) return;
+  transfers.set(
+    transferKey(detail),
+    chat.addFile({
+      from: detail.peerId,
+      name: sender.name,
+      fileName: detail.name,
+      size: detail.size,
+    }),
+  );
+});
+fileShare.addEventListener("progress", ({ detail }) => {
+  transfers.get(transferKey(detail))?.progress(detail.fraction);
+});
+fileShare.addEventListener("received", ({ detail }) => {
+  transfers.get(transferKey(detail))?.ready(detail.blob);
+  transfers.delete(transferKey(detail));
+});
+fileShare.addEventListener("failed", ({ detail }) => {
+  transfers.get(transferKey(detail))?.failed();
+  transfers.delete(transferKey(detail));
+});
+
+async function shareFile(file) {
+  if (file.size > MAX_FILE_SIZE) return toast(strings.files.tooLarge, { tone: "warning" });
+  if (!fileShare.reachable) return toast(strings.files.nobody, { tone: "warning" });
+  if (!toldAboutFiles) toast(strings.files.note);
+  toldAboutFiles = true;
+  const message = chat.addFile({
+    from: self.id,
+    name,
+    fileName: cleanFileName(file.name),
+    size: file.size,
+  });
+  const delivered = await fileShare.send(file, {
+    id: crypto.randomUUID(),
+    onProgress: message.progress,
+  });
+  if (delivered) message.ready(new Blob([file], { type: "application/octet-stream" }));
+  else message.failed();
+}
+
+$("chat-attach").addEventListener("click", () => $("chat-file").click());
+$("chat-file").addEventListener("change", (event) => {
+  for (const file of event.target.files) shareFile(file);
+  event.target.value = "";
+});
+// Files can also be dropped onto the chat.
+$("chat").addEventListener("dragover", (event) => {
+  if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
+});
+$("chat").addEventListener("drop", (event) => {
+  if (!event.dataTransfer?.files.length) return;
+  event.preventDefault();
+  for (const file of event.dataTransfer.files) shareFile(file);
+});
 
 // --------------------------------------------------------------- captions
 

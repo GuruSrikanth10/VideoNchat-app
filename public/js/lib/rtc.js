@@ -7,6 +7,10 @@
 // camera on or off, switching devices and sharing the screen never need a
 // renegotiation. Transceivers are always sendrecv, so someone without a
 // camera still receives everyone else's video.
+//
+// Each connection also has one data channel, for sharing files. It's
+// "negotiated" (both sides open it themselves, with the same ID), so
+// neither has to wait to be told about it.
 
 export const SLOTS = ["mic", "camera", "screen"];
 const KIND = { mic: "audio", camera: "video", screen: "video" };
@@ -92,6 +96,9 @@ export class PeerMesh extends EventTarget {
         await pc.setRemoteDescription(description);
         peer.isSettingRemoteAnswerPending = false;
         if (description.type === "offer") {
+          // Opened only now, so it rides on this offer instead of starting
+          // a negotiation of its own.
+          this.#openChannel(peer);
           for (const slot of SLOTS) this.#applyTrack(peer, slot);
           await pc.setLocalDescription();
           this.#send({ to: from, description: pc.localDescription.toJSON() });
@@ -182,8 +189,16 @@ export class PeerMesh extends EventTarget {
       for (const slot of SLOTS) {
         pc.addTransceiver(this.#tracks[slot] ?? KIND[slot], { direction: "sendrecv" });
       }
+      this.#openChannel(peer);
     }
     return peer;
+  }
+
+  #openChannel(peer) {
+    if (peer.channel) return;
+    peer.channel = peer.pc.createDataChannel("files", { negotiated: true, id: 0 });
+    peer.channel.binaryType = "arraybuffer";
+    this.#emit("channel", { id: peer.id, channel: peer.channel });
   }
 
   #applyTrack(peer, slot) {

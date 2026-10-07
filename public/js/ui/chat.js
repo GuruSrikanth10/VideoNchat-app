@@ -1,6 +1,8 @@
 // The chat panel: messages, the typing indicator and the composer.
 // Remote text only ever goes into textContent.
 import { strings } from "../strings.js";
+import { icon } from "./icons.js";
+import { formatSize } from "../lib/file-share.js";
 
 const timeFormat = new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit" });
 const MAX_LENGTH = 1000;
@@ -56,6 +58,66 @@ export class Chat {
     this.#seen.add(id);
     this.setTyping(from, name, false);
 
+    const body = document.createElement("p");
+    body.className = "message__text";
+    for (const part of linkify(text)) {
+      if (typeof part === "string") {
+        body.append(part);
+      } else {
+        const link = document.createElement("a");
+        link.href = part.href;
+        link.textContent = part.text;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer nofollow";
+        body.append(link);
+      }
+    }
+
+    this.#append({ from, name, ts, body });
+  }
+
+  // A file shared in the call (peer to peer, so not in the server's
+  // history). Returns { progress(fraction), ready(blob), failed() } to
+  // follow the transfer.
+  addFile({ from, name, fileName, size }) {
+    const mine = from === this.#selfId;
+    const body = document.createElement("div");
+    body.className = "message__file";
+    const label = document.createElement("span");
+    label.className = "message__file-name";
+    label.textContent = fileName;
+    const details = document.createElement("span");
+    details.className = "message__file-status";
+    const describe = (status) => `${formatSize(size)} · ${status}`;
+    details.textContent = describe(mine ? strings.files.sending(0) : strings.files.receiving(0));
+    body.append(icon("file", "icon message__file-icon"), label, details);
+    this.#append({ from, name, ts: Date.now(), body });
+
+    return {
+      progress: (fraction) => {
+        const percent = Math.round(fraction * 100);
+        details.textContent = describe(
+          mine ? strings.files.sending(percent) : strings.files.receiving(percent),
+        );
+      },
+      ready: (blob) => {
+        const link = document.createElement("a");
+        link.className = "btn btn--secondary message__file-link";
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.textContent = strings.files.download;
+        link.setAttribute("aria-label", strings.files.downloadName(fileName));
+        details.textContent = describe(mine ? strings.files.sent : strings.files.received);
+        body.append(link);
+      },
+      failed: () => {
+        details.textContent = describe(strings.files.failed);
+        body.classList.add("message__file--failed");
+      },
+    };
+  }
+
+  #append({ from, name, ts, body }) {
     const mine = from === this.#selfId;
     const previous = this.#list.lastElementChild;
     const grouped = previous?.dataset.from === from && ts - Number(previous.dataset.ts) < 120_000;
@@ -76,21 +138,6 @@ export class Chat {
     time.dateTime = new Date(ts).toISOString();
     time.textContent = timeFormat.format(ts);
     meta.append(author, time);
-
-    const body = document.createElement("p");
-    body.className = "message__text";
-    for (const part of linkify(text)) {
-      if (typeof part === "string") {
-        body.append(part);
-      } else {
-        const link = document.createElement("a");
-        link.href = part.href;
-        link.textContent = part.text;
-        link.target = "_blank";
-        link.rel = "noopener noreferrer nofollow";
-        body.append(link);
-      }
-    }
 
     item.append(meta, body);
     const atBottom = this.#isAtBottom();

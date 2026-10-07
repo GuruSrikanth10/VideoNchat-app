@@ -175,6 +175,16 @@
         </button>
         <p id="typing" class="typing" aria-live="polite"></p>
         <form id="chat-form" class="composer">
+          <button
+            id="chat-attach"
+            class="icon-btn"
+            type="button"
+            aria-label="Share a file"
+            title="Share a file"
+          >
+            <svg data-icon="paperclip"></svg>
+          </button>
+          <input id="chat-file" type="file" multiple hidden />
           <label for="chat-input" class="visually-hidden">Message</label>
           <textarea
             id="chat-input"

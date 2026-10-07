@@ -150,6 +150,20 @@ export const strings = {
     blocked: "Captions of your speech need microphone access.",
   },
 
+  files: {
+    attach: "Share a file",
+    note: "Files go straight to the people in the call now; people who join later won't get them.",
+    tooLarge: "Files can be up to 50 MB.",
+    nobody: "There's no one connected to send it to yet.",
+    sending: (percent) => `Sending… ${percent}%`,
+    receiving: (percent) => `Receiving… ${percent}%`,
+    sent: "Sent",
+    received: "Received",
+    failed: "Didn't arrive",
+    download: "Download",
+    downloadName: (name) => `Download ${name}`,
+  },
+
   recording: {
     start: "Start recording",
     stop: "Stop recording",

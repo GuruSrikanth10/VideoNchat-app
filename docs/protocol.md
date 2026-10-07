@@ -169,3 +169,20 @@ and are limited to a burst of 30, then 10 a second.
 | Event | Direction | Notes |
 | --- | --- | --- |
 | `net:ping` | client → server | acknowledged immediately; used to measure round-trip time |
+
+## Files (peer to peer)
+
+Files never pass through the server. Every peer connection has one data
+channel, `files`, created on both sides with `negotiated: true, id: 0`.
+The caller creates it together with its transceivers, and the answerer
+when the first offer arrives. A file is sent as:
+
+1. a JSON text message `{ type: "file", id, name, size }`,
+2. binary chunks of 16 KiB (paused while more than 1 MiB is buffered),
+3. a JSON text message `{ type: "file-end", id }`.
+
+Files to the same person go one at a time. Receivers drop files over
+50 MB, file names with paths or control characters are cleaned, and the
+received data is always typed `application/octet-stream`, so it is
+downloaded and never rendered. People who join later don't receive
+earlier files.
