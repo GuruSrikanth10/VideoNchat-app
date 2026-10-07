@@ -1,5 +1,6 @@
 // Modal dialogs built on the native <dialog> element, which handles focus
 // trapping, Escape and the backdrop for us.
+import { strings } from "../strings.js";
 
 function build({ title, body, className = "" }) {
   const dialog = document.createElement("dialog");
@@ -54,7 +55,13 @@ function open(dialog, { onCancel } = {}) {
 }
 
 // Resolves to true if confirmed.
-export async function confirmDialog({ title, body, confirmLabel, cancelLabel = "Cancel", tone }) {
+export async function confirmDialog({
+  title,
+  body,
+  confirmLabel,
+  cancelLabel = strings.dialog.cancel,
+  tone,
+}) {
   const { dialog, form } = build({ title, body });
   actions(form, [
     { label: cancelLabel, value: "cancel" },

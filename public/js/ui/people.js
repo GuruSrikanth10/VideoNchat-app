@@ -1,5 +1,6 @@
 // The People panel: everyone in the call and what they're sharing.
 import { icon } from "./icons.js";
+import { strings } from "../strings.js";
 
 const initials = (name) =>
   name
@@ -38,7 +39,7 @@ export class People {
 
     const label = document.createElement("span");
     label.className = "person__name";
-    label.textContent = self ? `${name} (you)` : name;
+    label.textContent = self ? strings.tiles.you(name) : name;
 
     const states = document.createElement("span");
     states.className = "person__states";
@@ -51,9 +52,9 @@ export class People {
       state.append(icon(iconName), hidden);
       states.append(state);
     };
-    if (screen) add("monitor-up", "presenting");
-    if (!video) add("video-off", "camera off");
-    if (!audio) add("mic-off", "muted");
+    if (screen) add("monitor-up", strings.people.presenting);
+    if (!video) add("video-off", strings.people.cameraOff);
+    if (!audio) add("mic-off", strings.people.muted);
 
     item.append(avatar, label, states);
     return item;

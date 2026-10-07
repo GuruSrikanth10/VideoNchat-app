@@ -1,6 +1,7 @@
 // The landing page: start a meeting, or join one from a link or code.
 import { hydrateIcons } from "./ui/icons.js";
 import { parseMeetingCode } from "./lib/meeting-code.js";
+import { strings } from "./strings.js";
 
 hydrateIcons();
 
@@ -12,9 +13,7 @@ form?.addEventListener("submit", (event) => {
   event.preventDefault();
   const code = parseMeetingCode(input.value, location.origin);
   if (!code) {
-    error.textContent = input.value.trim()
-      ? "That doesn't look like a meeting link or code from this site."
-      : "Enter the meeting link or code you were sent.";
+    error.textContent = input.value.trim() ? strings.home.invalidCode : strings.home.missingCode;
     input.setAttribute("aria-invalid", "true");
     input.focus();
     return;

@@ -1,5 +1,6 @@
 // The chat panel: messages, the typing indicator and the composer.
 // Remote text only ever goes into textContent.
+import { strings } from "../strings.js";
 
 const timeFormat = new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit" });
 const MAX_LENGTH = 1000;
@@ -69,7 +70,7 @@ export class Chat {
     meta.className = "message__meta";
     const author = document.createElement("span");
     author.className = "message__author";
-    author.textContent = mine ? "You" : name;
+    author.textContent = mine ? strings.chat.you : name;
     const time = document.createElement("time");
     time.className = "message__time";
     time.dateTime = new Date(ts).toISOString();
@@ -111,21 +112,14 @@ export class Chat {
       this.#typers.delete(from);
     }
     const names = [...this.#typers.values()].map((t) => t.name);
-    this.#typing.textContent =
-      names.length === 0
-        ? ""
-        : names.length === 1
-          ? `${names[0]} is typing…`
-          : names.length === 2
-            ? `${names[0]} and ${names[1]} are typing…`
-            : "Several people are typing…";
+    this.#typing.textContent = names.length ? strings.chat.typing(names) : "";
   }
 
   #wireComposer({ form, input, counter, onSend, onTyping }) {
     // Remaining characters, shown only when the limit gets close.
     const updateCounter = () => {
       const left = MAX_LENGTH - input.value.length;
-      counter.textContent = left <= 200 ? `${left} characters left` : "";
+      counter.textContent = left <= 200 ? strings.chat.charactersLeft(left) : "";
     };
     let typingSentAt = 0;
     let idleTimer;

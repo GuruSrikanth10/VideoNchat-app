@@ -14,6 +14,7 @@ import { hydrateIcons, setIcon } from "./ui/icons.js";
 import { Lobby } from "./ui/lobby.js";
 import { DevicePicker, rememberedDevices } from "./ui/devices.js";
 import { SpeakingDetector } from "./lib/audio-levels.js";
+import { strings } from "./strings.js";
 import {
   SHORTCUTS,
   bindShortcuts,
@@ -176,23 +177,23 @@ function handleJoinError(error) {
   if (!self) {
     // Still in the lobby: let the person try again from there.
     if (error === "room-full") {
-      toast("This meeting is full right now. Try again in a moment.", { tone: "warning" });
+      toast(strings.join.roomFull, { tone: "warning" });
     } else {
-      toast(`Couldn't join the meeting (${describeError(error)}).`, { tone: "error" });
+      toast(strings.join.failed(describeError(error)), { tone: "error" });
     }
     return;
   }
   if (error === "room-full") {
     return choiceDialog({
-      title: "This meeting is full",
-      body: "Everyone in a call sends video to everyone else, so rooms are kept small.",
+      title: strings.join.fullTitle,
+      body: strings.join.fullBody,
       choices: [
-        { label: "Try again", value: "retry" },
-        { label: "Start a new meeting", value: "new", tone: "primary", autofocus: true },
+        { label: strings.join.tryAgain, value: "retry" },
+        { label: strings.join.startNew, value: "new", tone: "primary", autofocus: true },
       ],
     }).then((choice) => (choice === "new" ? location.assign("/") : location.reload()));
   }
-  showBanner(`Couldn't join the meeting (${describeError(error)}). Retrying…`);
+  showBanner(strings.join.retrying(describeError(error)));
   setTimeout(join, 3000);
 }
 
@@ -207,7 +208,7 @@ function addParticipant(participant, { quiet = false } = {}) {
     video: participant.video,
   });
   showRemoteMedia(participant.id);
-  if (!known && !quiet) toast(`${participant.name} joined`);
+  if (!known && !quiet) toast(strings.call.joined(participant.name));
   updateCount();
   renderPeople();
 }
@@ -221,7 +222,7 @@ function updateParticipant(participant) {
     audio: participant.audio,
     video: participant.video,
   });
-  if (participant.screen && !previous.screen) toast(`${participant.name} is presenting`);
+  if (participant.screen && !previous.screen) toast(strings.call.presenting(participant.name));
   showRemoteMedia(participant.id);
   renderPeople();
 }
@@ -233,7 +234,7 @@ function removeParticipant(id, { quiet = false } = {}) {
   trackSpeaking(id, null);
   mesh?.remove(id);
   tiles.remove(id);
-  if (participant && !quiet) toast(`${participant.name} left`);
+  if (participant && !quiet) toast(strings.call.left(participant.name));
   updateCount();
   renderPeople();
 }
@@ -258,7 +259,7 @@ function showRemoteMedia(id) {
 }
 
 function renderPeople() {
-  $("people-heading").textContent = `People (${participants.size + 1})`;
+  $("people-heading").textContent = strings.call.peopleHeading(participants.size + 1);
   people.render([
     {
       id: "self",
@@ -274,9 +275,9 @@ function renderPeople() {
 
 function updateCount() {
   const count = participants.size + 1;
-  $("participant-count").textContent = count === 1 ? "Just you" : `${count} in call`;
+  $("participant-count").textContent = strings.call.count(count);
   // e.g. "(3) Meeting · VideoNChat", so the tab shows who's there.
-  document.title = `${count > 1 ? `(${count}) ` : ""}Meeting · VideoNChat`;
+  document.title = strings.call.title(count);
   mesh?.setVideoLimits(videoLimitsFor(count));
 }
 
@@ -290,13 +291,13 @@ socket.on("chat:message", (message) => chat.add(message));
 socket.on("chat:typing", ({ from, name: typer, typing }) => chat.setTyping(from, typer, typing));
 
 socket.on("server:restarting", () => {
-  showBanner("The server is restarting. You'll be reconnected automatically.");
+  showBanner(strings.call.restarting);
 });
 
 socket.on("disconnect", () => {
   if (leaving) return;
   joined = false;
-  showBanner("Connection lost. Reconnecting…");
+  showBanner(strings.call.reconnecting);
 });
 
 socket.on("connect", () => {
@@ -342,7 +343,7 @@ media.addEventListener("change", () => {
   sendMediaState();
 });
 media.addEventListener("deviceended", ({ detail }) => {
-  toast(detail.slot === "mic" ? "Microphone disconnected" : "Camera disconnected", {
+  toast(detail.slot === "mic" ? strings.media.micDisconnected : strings.media.cameraDisconnected, {
     tone: "warning",
   });
 });
@@ -402,28 +403,28 @@ function setTooltip(button, text) {
     button.append(tip);
   }
   const shortcut = shortcutFor(button.dataset.shortcut);
-  tip.textContent = shortcut ? `${text} (${describeKeys(shortcut)})` : text;
+  tip.textContent = shortcut ? strings.controls.withShortcut(text, describeKeys(shortcut)) : text;
 }
 
 function updateControls() {
   const micOn = media.micEnabled && Boolean(media.mic);
   setControl($("mic"), {
-    label: micOn ? "Mute" : "Unmute",
-    tooltip: micOn ? "Turn off microphone" : "Turn on microphone",
+    label: micOn ? strings.controls.mute : strings.controls.unmute,
+    tooltip: micOn ? strings.lobby.micOff : strings.lobby.micOn,
     iconName: micOn ? "mic" : "mic-off",
     active: !micOn,
   });
   const cameraOn = media.cameraEnabled && Boolean(media.camera);
   setControl($("camera"), {
-    label: cameraOn ? "Stop video" : "Start video",
-    tooltip: cameraOn ? "Turn off camera" : "Turn on camera",
+    label: cameraOn ? strings.controls.stopVideo : strings.controls.startVideo,
+    tooltip: cameraOn ? strings.lobby.cameraOff : strings.lobby.cameraOn,
     iconName: cameraOn ? "video" : "video-off",
     active: !cameraOn,
   });
   $("share").hidden = !ScreenShare.supported();
   setControl($("share"), {
-    label: share.active ? "Stop presenting" : "Present",
-    tooltip: share.active ? "Stop presenting" : "Present your screen",
+    label: share.active ? strings.controls.stopPresenting : strings.controls.present,
+    tooltip: share.active ? strings.controls.stopPresenting : strings.controls.presentTooltip,
     iconName: share.active ? "monitor-x" : "monitor-up",
     active: share.active,
   });
@@ -433,11 +434,11 @@ function updateControls() {
 // what changed, e.g. "Microphone off" (or null if nothing did).
 async function toggleMic() {
   if (!media.mic) {
-    toast("No microphone is available.", { tone: "warning" });
+    toast(strings.media.noMic, { tone: "warning" });
     return null;
   }
   media.setMicEnabled(!media.micEnabled);
-  return media.micEnabled ? "Microphone on" : "Microphone off";
+  return media.micEnabled ? strings.media.micIsOn : strings.media.micIsOff;
 }
 
 let cameraBusy = false;
@@ -446,9 +447,13 @@ async function flipCamera() {
   cameraBusy = true;
   const flipped = await media.flipCamera();
   cameraBusy = false;
-  if (!flipped) toast("Couldn't switch cameras.", { tone: "warning" });
+  if (!flipped) toast(strings.media.flipFailed, { tone: "warning" });
   else
-    announce(media.facing === "environment" ? "Using the back camera" : "Using the front camera");
+    announce(
+      media.facing === "environment"
+        ? strings.media.usingBackCamera
+        : strings.media.usingFrontCamera,
+    );
 }
 
 async function toggleCamera() {
@@ -461,10 +466,10 @@ async function toggleCamera() {
   for (const button of buttons) button.disabled = false;
   cameraBusy = false;
   if (!done) {
-    toast("The camera couldn't start.", { tone: "warning" });
+    toast(strings.media.cameraFailed, { tone: "warning" });
     return null;
   }
-  return turningOn ? "Camera on" : "Camera off";
+  return turningOn ? strings.media.cameraIsOn : strings.media.cameraIsOff;
 }
 
 $("mic").addEventListener("click", toggleMic);
@@ -475,7 +480,7 @@ $("share").addEventListener("click", async () => {
   try {
     await share.start();
   } catch {
-    toast("Screen sharing couldn't start.", { tone: "error" });
+    toast(strings.media.shareFailed, { tone: "error" });
   }
 });
 
@@ -538,7 +543,7 @@ function announceChange(message) {
 
 function renderShortcuts() {
   const rows = SHORTCUTS.map(({ description, ...shortcut }) => [description, keysFor(shortcut)]);
-  rows.push(["Close a panel or dialog", ["Esc"]]);
+  rows.push([strings.shortcuts.close, [strings.shortcuts.escape]]);
   $("shortcuts-list").replaceChildren(
     ...rows.map(([description, keys]) => {
       const row = document.createElement("div");
@@ -578,11 +583,11 @@ for (const [id, action] of [
   $(id).setAttribute("aria-keyshortcuts", ariaFor(shortcutFor(action)));
 }
 for (const [id, text] of [
-  ["chat-toggle", "Chat with everyone"],
-  ["people-toggle", "Show everyone"],
-  ["invite", "Invite people"],
-  ["settings", "Settings"],
-  ["leave", "Leave the meeting"],
+  ["chat-toggle", strings.controls.chatTooltip],
+  ["people-toggle", strings.controls.peopleTooltip],
+  ["invite", strings.controls.inviteTooltip],
+  ["settings", strings.controls.settingsTooltip],
+  ["leave", strings.controls.leaveTooltip],
 ]) {
   setTooltip($(id), text);
 }
@@ -612,7 +617,7 @@ $("invite").addEventListener("click", async () => {
   const url = location.href;
   if (navigator.share && matchMedia("(pointer: coarse)").matches) {
     try {
-      await navigator.share({ title: "Join my VideoNChat meeting", url });
+      await navigator.share({ title: strings.invite.shareTitle, url });
       return;
     } catch {
       // cancelled: fall back to copying
@@ -620,17 +625,17 @@ $("invite").addEventListener("click", async () => {
   }
   try {
     await navigator.clipboard.writeText(url);
-    toast("Invite link copied", { tone: "success" });
+    toast(strings.invite.copied, { tone: "success" });
   } catch {
-    toast(`Share this link: ${url}`, { duration: 10000 });
+    toast(strings.invite.shareThis(url), { duration: 10000 });
   }
 });
 
 $("leave").addEventListener("click", async () => {
   const ok = await confirmDialog({
-    title: "Leave the meeting?",
-    body: "You can rejoin with the same link.",
-    confirmLabel: "Leave",
+    title: strings.leave.confirmTitle,
+    body: strings.leave.confirmBody,
+    confirmLabel: strings.leave.confirm,
     tone: "danger",
   });
   if (ok) leave();
@@ -669,14 +674,14 @@ function measurePing() {
     const value = $("ping-value");
     const badge = $("ping");
     if (err) {
-      value.textContent = "offline";
+      value.textContent = strings.call.offline;
       badge.dataset.quality = "poor";
       return;
     }
     const ms = Math.round(performance.now() - started);
-    value.textContent = `${ms} ms`;
+    value.textContent = strings.call.ping(ms);
     badge.dataset.quality = ms < 150 ? "good" : ms < 300 ? "fair" : "poor";
-    badge.setAttribute("aria-label", `Round trip to the server: ${ms} milliseconds`);
+    badge.setAttribute("aria-label", strings.call.pingLabel(ms));
   });
 }
 measurePing();
@@ -701,8 +706,8 @@ setInterval(async () => {
 // ------------------------------------------------------------------- misc
 
 document.addEventListener("autoplay-blocked", () => {
-  showBanner("Your browser paused the call audio.", {
-    action: "Play audio",
+  showBanner(strings.call.audioBlocked, {
+    action: strings.call.playAudio,
     onAction: () => {
       tiles.resumeAll();
       hideBanner();
@@ -726,16 +731,7 @@ function hideBanner() {
   $("banner").hidden = true;
 }
 
-function describeError(error) {
-  return (
-    {
-      "rate-limited": "you're sending too fast",
-      "not-joined": "not connected to the meeting yet",
-      timeout: "no response from the server",
-      "empty-message": "the message is empty",
-    }[error] ?? error
-  );
-}
+const describeError = (error) => strings.errors[error] ?? error;
 
 // A handle for debugging from the browser console (and for tests).
 window.videonchat = { socket, media, share, mesh: () => mesh, self: () => self };

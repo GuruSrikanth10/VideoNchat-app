@@ -4,8 +4,12 @@ import { LevelMeter } from "../lib/audio-levels.js";
 import { DevicePicker } from "./devices.js";
 import { setIcon } from "./icons.js";
 import { describeKeys, shortcutFor } from "./shortcuts.js";
+import { strings } from "../strings.js";
 
 const $ = (id) => document.getElementById(id);
+
+const withShortcut = (text, action) =>
+  strings.controls.withShortcut(text, describeKeys(shortcutFor(action)));
 
 const initialsOf = (name) =>
   name
@@ -17,19 +21,10 @@ const initialsOf = (name) =>
 
 // Plain-language help for each getUserMedia error.
 export function describeMediaError(error, { partial = null } = {}) {
-  const reasons = {
-    NotAllowedError:
-      "Camera and microphone access is blocked. Allow it from the camera icon in the address bar (or your browser's site settings), then try again.",
-    NotFoundError: "No camera or microphone was found. Connect one and try again.",
-    NotReadableError:
-      "Your camera or microphone is being used by another app. Close it and try again.",
-    OverconstrainedError: "The selected camera or microphone isn't available.",
-    SecurityError: "Camera and microphone only work on a secure (https) connection.",
-  };
-  const reason = reasons[error.name] ?? "Your camera or microphone couldn't start.";
-  if (partial === "audio") return `${reason} You can join with your microphone only.`;
-  if (partial === "video") return `${reason} You can join with your camera only.`;
-  return `${reason} You can still join to see and hear everyone.`;
+  const s = strings.mediaErrors;
+  const reason = Object.hasOwn(s.reasons, error.name) ? s.reasons[error.name] : s.other;
+  const next = partial === "audio" ? s.micOnly : partial === "video" ? s.cameraOnly : s.watchOnly;
+  return `${reason} ${next}`;
 }
 
 export class Lobby {
@@ -132,14 +127,14 @@ export class Lobby {
     const mic = $("lobby-mic");
     mic.disabled = !media.mic;
     mic.dataset.active = String(!micOn);
-    mic.setAttribute("aria-label", micOn ? "Turn off microphone" : "Turn on microphone");
-    mic.title = `${mic.getAttribute("aria-label")} (${describeKeys(shortcutFor("mic"))})`;
+    mic.setAttribute("aria-label", micOn ? strings.lobby.micOff : strings.lobby.micOn);
+    mic.title = withShortcut(mic.getAttribute("aria-label"), "mic");
     setIcon(mic.querySelector("svg"), micOn ? "mic" : "mic-off");
 
     const camera = $("lobby-camera");
     camera.dataset.active = String(!cameraOn);
-    camera.setAttribute("aria-label", cameraOn ? "Turn off camera" : "Turn on camera");
-    camera.title = `${camera.getAttribute("aria-label")} (${describeKeys(shortcutFor("camera"))})`;
+    camera.setAttribute("aria-label", cameraOn ? strings.lobby.cameraOff : strings.lobby.cameraOn);
+    camera.title = withShortcut(camera.getAttribute("aria-label"), "camera");
     setIcon(camera.querySelector("svg"), cameraOn ? "video" : "video-off");
 
     // Restart the meter whenever the microphone track changes.
@@ -168,10 +163,9 @@ export class Lobby {
       info.textContent = "";
       return;
     }
-    if (reply.full) info.textContent = "This meeting is full right now.";
-    else if (reply.count === 0) info.textContent = "No one else is here yet.";
-    else if (reply.count === 1) info.textContent = "1 person is in this meeting.";
-    else info.textContent = `${reply.count} people are in this meeting.`;
+    if (reply.full) info.textContent = strings.lobby.roomFull;
+    else if (reply.count === 0) info.textContent = strings.lobby.nobodyHere;
+    else info.textContent = strings.lobby.peopleHere(reply.count);
   }
 
   async #join() {
@@ -179,7 +173,7 @@ export class Lobby {
     const input = $("lobby-name");
     const name = input.value.trim().slice(0, 40);
     if (!name) {
-      $("name-error").textContent = "Please enter your name.";
+      $("name-error").textContent = strings.lobby.nameRequired;
       input.setAttribute("aria-invalid", "true");
       input.focus();
       return;
@@ -187,11 +181,11 @@ export class Lobby {
     this.#joining = true;
     const button = $("join-button");
     button.disabled = true;
-    button.textContent = "Joining…";
+    button.textContent = strings.lobby.joining;
     const joined = await this.#onJoin(name);
     if (!joined) {
       button.disabled = false;
-      button.textContent = "Join now";
+      button.textContent = strings.lobby.joinNow;
     }
     this.#joining = false;
   }

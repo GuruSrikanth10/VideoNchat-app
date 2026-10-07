@@ -9,6 +9,7 @@
 //   of the stage, and the others sit in a strip beside or below it.
 import { icon, setIcon } from "./icons.js";
 import { describe } from "../lib/stats.js";
+import { strings } from "../strings.js";
 
 const GAP = 12;
 
@@ -59,7 +60,7 @@ export class Tiles {
     }
     if (name !== undefined) {
       tile.name = name;
-      const label = self || tile.self ? `${name} (you)` : name;
+      const label = self || tile.self ? strings.tiles.you(name) : name;
       tile.label.textContent = label;
       tile.initials.textContent = initials(name);
       tile.root.setAttribute("aria-label", label);
@@ -94,7 +95,7 @@ export class Tiles {
       this.#tiles.set(key, tile);
       this.#root.prepend(tile.root);
     }
-    tile.name = self ? "Your screen" : `${name}'s screen`;
+    tile.name = self ? strings.tiles.yourScreen : strings.tiles.screenOf(name);
     tile.label.textContent = tile.name;
     tile.root.setAttribute("aria-label", tile.name);
     this.#labelActions(tile);
@@ -189,8 +190,8 @@ export class Tiles {
     const quality = document.createElement("span");
     quality.className = "tile__quality";
     quality.setAttribute("role", "img");
-    quality.setAttribute("aria-label", "Measuring connection");
-    quality.title = "Measuring connection";
+    quality.setAttribute("aria-label", strings.quality.measuring);
+    quality.title = strings.quality.measuring;
     quality.dataset.quality = "unknown";
     quality.hidden = self || screen;
 
@@ -212,8 +213,8 @@ export class Tiles {
     const buttons = { pin, fullscreen, pip };
     if (self) {
       buttons.flip = this.#actionButton("switch-camera", () => this.#onFlipCamera());
-      buttons.flip.setAttribute("aria-label", "Switch camera");
-      buttons.flip.title = "Switch camera";
+      buttons.flip.setAttribute("aria-label", strings.media.switchCamera);
+      buttons.flip.title = strings.media.switchCamera;
       buttons.flip.hidden = true;
       actions.append(buttons.flip);
     }
@@ -237,15 +238,15 @@ export class Tiles {
     if (!tile.buttons) return;
     const id = tile.root.dataset.id;
     const pinned = this.#pinned === id;
-    const who = tile.name || "this tile";
+    const who = tile.name || strings.tiles.thisTile;
     const { pin, fullscreen, pip } = tile.buttons;
-    pin.setAttribute("aria-label", pinned ? `Unpin ${who}` : `Pin ${who}`);
+    pin.setAttribute("aria-label", pinned ? strings.tiles.unpin(who) : strings.tiles.pin(who));
     pin.setAttribute("aria-pressed", String(pinned));
     pin.title = pin.getAttribute("aria-label");
     setIcon(pin.querySelector("svg"), pinned ? "pin-off" : "pin");
-    fullscreen.setAttribute("aria-label", `Show ${who} full screen`);
+    fullscreen.setAttribute("aria-label", strings.tiles.fullscreen(who));
     fullscreen.title = fullscreen.getAttribute("aria-label");
-    pip.setAttribute("aria-label", `Show ${who} picture-in-picture`);
+    pip.setAttribute("aria-label", strings.tiles.pictureInPicture(who));
     pip.title = pip.getAttribute("aria-label");
   }
 

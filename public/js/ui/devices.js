@@ -1,9 +1,9 @@
 // Camera, microphone and speaker pickers, used in the lobby and in the
 // in-call settings. Choices are remembered for next time.
 import { local } from "../lib/storage.js";
+import { strings } from "../strings.js";
 
 const STORAGE_KEY = "videonchat:devices";
-const LABELS = { videoinput: "Camera", audioinput: "Microphone", audiooutput: "Speaker" };
 
 export function rememberedDevices() {
   try {
@@ -48,14 +48,14 @@ export class DevicePicker {
         ...list.map((device, index) => {
           const option = document.createElement("option");
           option.value = device.deviceId;
-          option.textContent = device.label || `${LABELS[kind]} ${index + 1}`;
+          option.textContent = device.label || strings.devices.numbered(kind, index + 1);
           option.selected = device.deviceId === current;
           return option;
         }),
       );
       if (list.length === 0) {
         const option = document.createElement("option");
-        option.textContent = `No ${LABELS[kind].toLowerCase()} found`;
+        option.textContent = strings.devices.none(kind);
         select.append(option);
       }
       select.disabled = list.length === 0;

@@ -2,6 +2,7 @@
 import { isMeetingCode } from "./lib/meeting-code.js";
 import { formatDuration } from "./lib/duration.js";
 import { session } from "./lib/storage.js";
+import { strings } from "./strings.js";
 
 const LAST_CALL_KEY = "videonchat:last-call";
 
@@ -22,6 +23,6 @@ if (lastCall?.room === room && Number.isFinite(lastCall.seconds)) {
   const duration = document.getElementById("call-duration");
   // Worded in the page's language, to match the sentence around it.
   const words = formatDuration(lastCall.seconds, document.documentElement.lang || undefined);
-  duration.textContent = `You were in the meeting for ${words}.`;
+  duration.textContent = strings.leave.duration(words);
   duration.hidden = false;
 }

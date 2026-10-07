@@ -1,4 +1,5 @@
 // Call quality from RTCPeerConnection.getStats(), sampled periodically.
+import { strings } from "../strings.js";
 
 // Summarises a stats report, given the previous summary for rates.
 export function summarize(report, previous = null, now = Date.now()) {
@@ -42,10 +43,11 @@ export function rate({ rtt, lossPercent, jitter }) {
 }
 
 export function describe(summary, quality) {
+  const s = strings.quality;
   const parts = [];
-  if (summary.rtt !== null) parts.push(`${Math.round(summary.rtt)} ms round trip`);
-  if (summary.lossPercent !== null) parts.push(`${summary.lossPercent.toFixed(1)}% packet loss`);
-  if (summary.kbps !== null) parts.push(`${Math.round(summary.kbps)} kbps`);
-  const label = { good: "Good", fair: "Fair", poor: "Poor" }[quality] ?? "Measuring";
-  return parts.length ? `${label} connection: ${parts.join(", ")}` : `${label} connection`;
+  if (summary.rtt !== null) parts.push(s.roundTrip(Math.round(summary.rtt)));
+  if (summary.lossPercent !== null) parts.push(s.loss(summary.lossPercent.toFixed(1)));
+  if (summary.kbps !== null) parts.push(s.bitrate(Math.round(summary.kbps)));
+  const label = s[quality] ?? s.measuring;
+  return parts.length ? s.details(label, parts) : label;
 }

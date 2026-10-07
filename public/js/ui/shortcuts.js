@@ -4,12 +4,14 @@
 //
 // "mod" is Ctrl (⌘ on Apple devices). "panel" is Ctrl+Alt (Ctrl+⌘ on
 // Apple devices, where ⌘+Option combinations open the developer tools).
+import { strings } from "../strings.js";
+
 export const SHORTCUTS = [
-  { action: "mic", key: "d", combo: "mod", description: "Turn your microphone on or off" },
-  { action: "camera", key: "e", combo: "mod", description: "Turn your camera on or off" },
-  { action: "chat", key: "c", combo: "panel", description: "Open or close the chat" },
-  { action: "people", key: "p", combo: "panel", description: "Open or close the people list" },
-  { action: "help", key: "/", combo: "mod", description: "Show keyboard shortcuts" },
+  { action: "mic", key: "d", combo: "mod", description: strings.shortcuts.mic },
+  { action: "camera", key: "e", combo: "mod", description: strings.shortcuts.camera },
+  { action: "chat", key: "c", combo: "panel", description: strings.shortcuts.chat },
+  { action: "people", key: "p", combo: "panel", description: strings.shortcuts.people },
+  { action: "help", key: "/", combo: "mod", description: strings.shortcuts.help },
 ];
 
 // Each combo's modifier keys, by their KeyboardEvent names.
