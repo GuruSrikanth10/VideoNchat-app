@@ -7,7 +7,9 @@
     "start": "node app.js",
     "dev": "node --watch app.js",
     "lint": "eslint . && stylelint \"public/**/*.css\" && prettier --check .",
-    "format": "prettier --write . && stylelint --fix \"public/**/*.css\""
+    "format": "prettier --write . && stylelint --fix \"public/**/*.css\"",
+    "test": "node --test --test-force-exit --test-timeout=10000 \"test/server/**/*.test.js\"",
+    "test:coverage": "node --test --test-force-exit --test-timeout=10000 --experimental-test-coverage --test-coverage-include=app.js --test-coverage-lines=80 \"test/server/**/*.test.js\""
   },
   "author": "Guru SriKanth",
   "license": "ISC",
