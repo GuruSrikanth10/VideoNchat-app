@@ -157,6 +157,7 @@
       <h1 class="visually-hidden">Meeting</h1>
       <section class="stage" aria-label="Participants">
         <div id="tiles" class="tiles" data-layout="grid" data-count="0" data-screens="0"></div>
+        <div id="captions" class="captions" hidden></div>
       </section>
 
       <aside id="chat" class="panel chat" aria-labelledby="chat-heading">
@@ -322,6 +323,28 @@
           <label for="call-audiooutput">Speaker</label>
           <select id="call-audiooutput"></select>
         </div>
+        <fieldset class="effects">
+          <legend>Captions</legend>
+          <label class="switch">
+            <input id="captions-toggle" type="checkbox" role="switch" />
+            <span class="switch__track" aria-hidden="true"></span>
+            <span class="switch__label">Show captions</span>
+          </label>
+          <label id="caption-me-field" class="switch">
+            <input
+              id="caption-me-toggle"
+              type="checkbox"
+              role="switch"
+              aria-describedby="caption-me-hint"
+            />
+            <span class="switch__track" aria-hidden="true"></span>
+            <span class="switch__label">Caption my speech</span>
+          </label>
+          <p id="caption-me-hint" class="effects__hint">
+            Your browser turns what you say into text for everyone showing captions. Some browsers,
+            like Chrome, send your audio to their speech service to do this.
+          </p>
+        </fieldset>
         <section id="recording-settings" class="effects" aria-labelledby="recording-title">
           <h3 id="recording-title" class="effects__title">Recording</h3>
           <p class="effects__note">

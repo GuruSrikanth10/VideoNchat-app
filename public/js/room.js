@@ -10,6 +10,8 @@ import { Chat } from "./ui/chat.js";
 import { People } from "./ui/people.js";
 import { ReactionMenu } from "./ui/reactions.js";
 import { CallRecorder, saveRecording } from "./lib/recorder.js";
+import { SpeechCaptioner } from "./lib/captions.js";
+import { CaptionDisplay } from "./ui/captions.js";
 import { toast, announce } from "./ui/toast.js";
 import { confirmDialog, choiceDialog } from "./ui/dialog.js";
 import { hydrateIcons, setIcon } from "./ui/icons.js";
@@ -32,6 +34,7 @@ const roomId = decodeURIComponent(location.pathname.split("/").filter(Boolean)[0
 const NAME_KEY = "videonchat:name";
 const SESSION_KEY = `videonchat:session:${roomId}`;
 const EFFECTS_KEY = "videonchat:effects";
+const CAPTIONS_KEY = "videonchat:captions";
 const LAST_CALL_KEY = "videonchat:last-call";
 
 hydrateIcons();
@@ -300,6 +303,7 @@ function updateParticipant(participant) {
 
 function removeParticipant(id, { quiet = false } = {}) {
   const participant = participants.get(id);
+  captionDisplay.remove(id);
   participants.delete(id);
   statsHistory.delete(id);
   trackSpeaking(id, null);
@@ -398,6 +402,10 @@ socket.on("room:removed", () => leave({ reason: "removed" }));
 socket.on("participant:left", ({ id }) => removeParticipant(id));
 socket.on("rtc:signal", (signal) => mesh?.handleSignal(signal));
 socket.on("chat:message", (message) => chat.add(message));
+socket.on("caption", ({ from, text, final }) => {
+  const speaker = participants.get(from);
+  if (speaker && showingCaptions) captionDisplay.show(from, speaker.name, { text, final });
+});
 socket.on("reaction", ({ from, emoji }) => {
   const sender = participants.get(from);
   if (!sender) return;
@@ -452,6 +460,8 @@ media.addEventListener("trackchange", ({ detail }) => {
   }
 });
 media.addEventListener("change", () => {
+  // Nothing is listened to while you're muted.
+  captioner.setPaused(!(media.micEnabled && media.mic));
   if (!joined) return;
   refreshSelfView();
   updateControls();
@@ -628,6 +638,51 @@ async function setHand(raised) {
   renderPeople();
   if (changed) announce(raised ? strings.hands.yoursUp : strings.hands.yoursDown);
 }
+
+// --------------------------------------------------------------- captions
+
+const captionDisplay = new CaptionDisplay($("captions"));
+let showingCaptions = local.get(CAPTIONS_KEY) === "on";
+
+// Captions of your own speech, only while you choose to share them.
+const captioner = new SpeechCaptioner({
+  lang: document.documentElement.lang || navigator.language,
+  onCaption: (caption) => {
+    if (!joined) return;
+    socket.emit("caption:send", caption);
+    if (showingCaptions) captionDisplay.show("self", strings.captions.you, caption);
+  },
+  onError: (error) => {
+    $("caption-me-toggle").checked = false;
+    const blocked = error === "not-allowed" || error === "service-not-allowed";
+    toast(blocked ? strings.captions.blocked : strings.captions.failed, { tone: "warning" });
+  },
+});
+
+function refreshCaptionSettings() {
+  $("captions-toggle").checked = showingCaptions;
+  $("caption-me-toggle").checked = captioner.active;
+  $("caption-me-field").hidden = !SpeechCaptioner.supported();
+  $("caption-me-hint").textContent = SpeechCaptioner.supported()
+    ? $("caption-me-hint").dataset.text
+    : strings.captions.unsupported;
+}
+$("caption-me-hint").dataset.text = $("caption-me-hint").textContent.trim();
+
+$("captions-toggle").addEventListener("change", (event) => {
+  showingCaptions = event.target.checked;
+  local.set(CAPTIONS_KEY, showingCaptions ? "on" : "off");
+  if (!showingCaptions) captionDisplay.clear();
+});
+
+$("caption-me-toggle").addEventListener("change", (event) => {
+  if (event.target.checked) {
+    captioner.setPaused(!(media.micEnabled && media.mic));
+    captioner.start();
+  } else {
+    captioner.stop();
+  }
+});
 
 // -------------------------------------------------------------- recording
 
@@ -914,6 +969,7 @@ $("settings").addEventListener("click", async () => {
   $("noise-toggle").checked = media.effects.noiseSuppression;
   $("blur-toggle").checked = media.effects.backgroundBlur;
   $("blur-field").hidden = !media.canBlur;
+  refreshCaptionSettings();
   $("settings-dialog").showModal();
 });
 
@@ -973,6 +1029,7 @@ $("leave").addEventListener("click", async () => {
 
 async function leave({ reason } = {}) {
   await stopRecording(); // saved before the page goes
+  captioner.stop();
   leaving = true;
   joined = false;
   if (!reason) await request(socket, "room:leave", undefined, 2000);

@@ -113,6 +113,18 @@ uploaded. The server's job is to make sure everyone knows: clients send
 participant view (so late joiners see it), and `room:peek` reports
 `recording` so the lobby can say so before anyone joins.
 
+## Captions
+
+| Event | Direction | Payload | Reply / notes |
+| --- | --- | --- | --- |
+| `caption:send` | client → server | `{ text, final }` | `{ ok }`; relayed to the others as `caption { from, text, final }` |
+
+Captions are of the sender's own speech, made by their browser's speech
+recognition, and only if they turn it on. Interim text (`final: false`)
+replaces the previous interim text; final text ends a phrase. Text is
+trimmed to its last 300 characters. Captions are never stored or logged,
+and are limited to a burst of 30, then 10 a second.
+
 ## Raised hands and reactions
 
 | Event | Direction | Payload | Reply / notes |

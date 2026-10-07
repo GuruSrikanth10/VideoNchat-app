@@ -10,6 +10,8 @@ const RATE_LIMITS = {
   "chat:typing": { capacity: 10, perSecond: 2 },
   "media:state": { capacity: 20, perSecond: 5 },
   "reaction:send": { capacity: 10, perSecond: 2 },
+  // Interim captions update several times a second while someone talks.
+  "caption:send": { capacity: 30, perSecond: 10 },
   // ICE candidates arrive in bursts while connections are set up.
   "rtc:signal": { capacity: 400, perSecond: 100 },
   default: { capacity: 20, perSecond: 5 },

@@ -98,3 +98,27 @@ test("everyone is told who is recording, including late joiners and the lobby", 
   assert.equal((await ack(visitor, "room:peek", { roomId: room })).recording, false);
   assert.equal((await ack(alice, "recording:set", { recording: "yes" })).error, "invalid-payload");
 });
+
+test("captions are relayed to the others, never echoed or stored", async () => {
+  const { room, alice, bob, aliceId } = await pair();
+  const received = nextEvent(bob, "caption");
+  const echo = collect(alice, "caption", 300);
+  assert.deepEqual(await ack(alice, "caption:send", { text: " hello there ", final: false }), {
+    ok: true,
+  });
+  assert.deepEqual(await received, [{ from: aliceId, text: "hello there", final: false }]);
+  assert.equal((await echo).length, 0);
+
+  const long = nextEvent(bob, "caption");
+  await ack(alice, "caption:send", { text: "x".repeat(500), final: true });
+  assert.equal((await long)[0].text.length, 300);
+
+  assert.equal(
+    (await ack(alice, "caption:send", { text: 5, final: true })).error,
+    "invalid-payload",
+  );
+  assert.equal((await ack(alice, "caption:send", { text: "hi" })).error, "invalid-payload");
+  const carol = await app.client();
+  const { history } = await joinRoom(carol, room, "Carol");
+  assert.deepEqual(history, [], "captions aren't chat history");
+});

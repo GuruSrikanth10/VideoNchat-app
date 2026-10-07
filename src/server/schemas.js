@@ -11,6 +11,7 @@ const optionalString = (value, max) =>
 const MAX_NAME = 40;
 const MAX_MESSAGE = 1000;
 const MAX_SDP = 32 * 1024;
+const MAX_CAPTION = 300;
 
 // The reactions anyone can send; nothing else is relayed.
 const REACTIONS = ["👍", "❤️", "😂", "😮", "👏", "🎉"];
@@ -86,6 +87,20 @@ function parseHand(payload) {
   return ok({ raised: payload.raised });
 }
 
+// A caption of the sender's own speech: interim text is replaced as they
+// speak, final text ends a phrase.
+function parseCaption(payload) {
+  if (
+    !isObject(payload) ||
+    typeof payload.text !== "string" ||
+    typeof payload.final !== "boolean"
+  ) {
+    return fail("invalid-payload");
+  }
+  const text = payload.text.trim().slice(-MAX_CAPTION);
+  return ok({ text, final: payload.final });
+}
+
 function parseRecording(payload) {
   if (!isObject(payload) || typeof payload.recording !== "boolean") return fail("invalid-payload");
   return ok({ recording: payload.recording });
@@ -148,6 +163,7 @@ module.exports = {
   parseHand,
   parseReaction,
   parseRecording,
+  parseCaption,
   parseSignal,
   REACTIONS,
   MAX_NAME,

@@ -305,6 +305,17 @@ function attachRealtime({ io, rooms, config, logger }) {
       reply({ ok: true });
     });
 
+    // Captions of someone's own speech, made by their browser. Relayed,
+    // never stored or logged.
+    handle("caption:send", (payload, reply) => {
+      const participant = current();
+      if (!participant) return reply({ ok: false, error: "not-joined" });
+      const parsed = schemas.parseCaption(payload);
+      if (!parsed.ok) return reply(parsed);
+      socket.to(socket.data.roomId).emit("caption", { from: participant.id, ...parsed.value });
+      reply({ ok: true });
+    });
+
     // Reactions are fleeting: relayed, never stored.
     handle("reaction:send", (payload, reply) => {
       const participant = current();

@@ -386,9 +386,44 @@ button:disabled {
 }
 
 .stage {
+  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
+}
+
+/* Live captions over the bottom of the stage, readable on any video. */
+.captions {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(760px, calc(100% - 32px));
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.captions[hidden] {
+  display: none;
+}
+
+.caption {
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgb(0 0 0 / 78%);
+  color: #fff;
+  font-size: 1.125rem;
+  line-height: 1.4;
+}
+
+.caption__name {
+  margin-right: 8px;
+  color: #c8d6ff;
+  font-weight: 700;
 }
 
 /* -------------------------------------------------------------- lobby */

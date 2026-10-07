@@ -142,6 +142,14 @@ export const strings = {
     noiseFailed: "Noise suppression couldn't be changed.",
   },
 
+  captions: {
+    you: "You",
+    unsupported:
+      "Your browser can't turn your speech into text, but you can see other people's captions.",
+    failed: "Captions of your speech stopped.",
+    blocked: "Captions of your speech need microphone access.",
+  },
+
   recording: {
     start: "Start recording",
     stop: "Stop recording",
