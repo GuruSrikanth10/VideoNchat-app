@@ -1,4 +1,4 @@
-const { test, expect, joinMeeting, nameField } = require("./support");
+const { test, expect, joinMeeting, nameField, openPage } = require("./support");
 
 // A phone: a coarse pointer, and a front and a back camera. Requests for a
 // facing mode are recorded and dropped (the fake camera can't honour them),
@@ -38,7 +38,7 @@ const phoneWithTwoCameras = `(() => {
 
 test("phones can switch between the front and back cameras", async ({ openUser, room }) => {
   const phone = await openUser({ initScript: phoneWithTwoCameras });
-  await phone.goto(`/${room}`);
+  await openPage(phone, `/${room}`);
   await nameField(phone).fill("Phone");
   const flip = phone.locator("#lobby-flip");
   await expect(flip).toBeVisible();

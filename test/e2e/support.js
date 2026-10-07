@@ -43,9 +43,21 @@ const test = base.test.extend({
 
 const nameField = (page) => page.getByRole("textbox", { name: "Your name" });
 
+// Opens a page and waits for its HTML and styles, not its "load" event. The
+// app never relies on "load", and under CI load Firefox has now and then
+// never fired it, even for the static 404 page.
+async function openPage(page, url) {
+  const response = await page.goto(url, { waitUntil: "domcontentloaded" });
+  // Pages without scripts can get here before their CSS has arrived.
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('link[rel="stylesheet"]')].every((link) => link.sheet),
+  );
+  return response;
+}
+
 // Opens the meeting's lobby, optionally changes devices there, and joins.
 async function joinMeeting(page, room, name, { beforeJoin } = {}) {
-  await page.goto(`/${room}`);
+  await openPage(page, `/${room}`);
   await nameField(page).fill(name);
   if (beforeJoin) await beforeJoin(page);
   await page.getByRole("button", { name: "Join now" }).click();
@@ -117,6 +129,7 @@ const failingMedia = (name) =>
 module.exports = {
   test,
   expect,
+  openPage,
   joinMeeting,
   nameField,
   expectTiles,

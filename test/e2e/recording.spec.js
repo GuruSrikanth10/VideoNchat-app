@@ -1,5 +1,5 @@
 const fs = require("node:fs");
-const { test, expect, joinMeeting, nameField } = require("./support");
+const { test, expect, joinMeeting, nameField, openPage } = require("./support");
 
 test("recording tells everyone, and saves a video file when it stops", async ({
   openUser,
@@ -21,7 +21,7 @@ test("recording tells everyone, and saves a video file when it stops", async ({
 
   // Someone arriving is told before they join.
   const carol = await openUser();
-  await carol.goto(`/${room}`);
+  await openPage(carol, `/${room}`);
   await nameField(carol).fill("Carol");
   await expect(carol.locator("#room-info")).toContainText("This meeting is being recorded.");
 

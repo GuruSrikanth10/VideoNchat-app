@@ -1,4 +1,4 @@
-const { test, expect, joinMeeting, nameField, openChat } = require("./support");
+const { test, expect, joinMeeting, nameField, openChat, openPage } = require("./support");
 
 // Needs a microphone and camera, which WebKit doesn't fake.
 test("Ctrl+D and Ctrl+E turn the mic and camera on and off", async ({ openUser, room }) => {
@@ -74,7 +74,7 @@ test("Ctrl+/ lists the shortcuts, also reachable from Settings @smoke", async ({
 
 test("the mic and camera shortcuts work in the lobby too", async ({ openUser, room }) => {
   const alice = await openUser();
-  await alice.goto(`/${room}`);
+  await openPage(alice, `/${room}`);
   await nameField(alice).fill("Alice");
   const mic = alice.locator("#lobby-mic");
   await expect(mic).toHaveAccessibleName("Turn off microphone");

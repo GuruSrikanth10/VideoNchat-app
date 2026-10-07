@@ -1,5 +1,5 @@
 const AxeBuilder = require("@axe-core/playwright").default;
-const { test, expect, joinMeeting, openChat, openPeople } = require("./support");
+const { test, expect, joinMeeting, openChat, openPeople, openPage } = require("./support");
 
 test("the meeting page has no axe-core violations", async ({ openUser, room }) => {
   const page = await openUser();
@@ -27,9 +27,9 @@ test("People, host tools and the menus have no axe-core violations", async ({ op
 
 test("the lobby and leave page have no axe-core violations", async ({ openUser, room }) => {
   const page = await openUser();
-  await page.goto(`/${room}`);
+  await openPage(page, `/${room}`);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await page.goto(`/leave?room=${room}`);
+  await openPage(page, `/leave?room=${room}`);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 

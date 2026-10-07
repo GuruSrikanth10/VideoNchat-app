@@ -9,6 +9,7 @@ const {
   chatMessages,
   slowPermission,
   failingMedia,
+  openPage,
 } = require("./support");
 
 test("two people see and hear each other", async ({ openUser, room }) => {
@@ -133,7 +134,7 @@ for (const errorName of ["NotAllowedError", "NotFoundError"]) {
     const alice = await openUser();
     await joinMeeting(alice, room, "Alice");
     const viewer = await openUser({ initScript: failingMedia(errorName) });
-    await viewer.goto(`/${room}`);
+    await openPage(viewer, `/${room}`);
     await expect(viewer.locator("#media-status")).toContainText(
       "You can still join to see and hear everyone.",
     );

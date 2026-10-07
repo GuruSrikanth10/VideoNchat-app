@@ -6,11 +6,12 @@ const {
   leaveMeeting,
   tile,
   expectTiles,
+  openPage,
 } = require("./support");
 
 test("the lobby shows a preview and asks for a name @smoke", async ({ openUser, room }) => {
   const page = await openUser();
-  await page.goto(`/${room}`);
+  await openPage(page, `/${room}`);
   await expect(page.getByRole("heading", { name: "Ready to join?" })).toBeVisible();
   await expect(nameField(page)).toBeFocused();
   await expect(page.locator("#room-info")).toHaveText("No one else is here yet.");
@@ -19,7 +20,7 @@ test("the lobby shows a preview and asks for a name @smoke", async ({ openUser, 
 
 test("blank names aren't accepted @smoke", async ({ openUser, room }) => {
   const page = await openUser();
-  await page.goto(`/${room}`);
+  await openPage(page, `/${room}`);
   await nameField(page).fill("   ");
   await page.getByRole("button", { name: "Join now" }).click();
   await expect(page.locator("#name-error")).toHaveText("Please enter your name.");
@@ -31,7 +32,7 @@ test("the lobby says how many people are already in the meeting", async ({ openU
   const alice = await openUser();
   await joinMeeting(alice, room, "Alice");
   const bob = await openUser();
-  await bob.goto(`/${room}`);
+  await openPage(bob, `/${room}`);
   await expect(bob.locator("#room-info")).toHaveText("1 person is in this meeting.");
 });
 
@@ -64,7 +65,7 @@ test("you can join with the microphone and camera already off", async ({ openUse
 test("the lobby lists cameras and microphones", async ({ openUser, room, browserName }) => {
   test.skip(browserName === "webkit", "no fake devices");
   const page = await openUser();
-  await page.goto(`/${room}`);
+  await openPage(page, `/${room}`);
   const lobby = page.locator("#lobby");
   await lobby.getByText("Camera, microphone and speaker").click();
   await expect(lobby.getByLabel("Camera", { exact: true }).locator("option")).not.toHaveCount(0);
@@ -106,7 +107,7 @@ test("the connection badge shows a measured round trip", async ({ openUser, room
 
 test("unknown pages explain themselves @smoke", async ({ openUser }) => {
   const page = await openUser();
-  const response = await page.goto("/not/a/meeting");
+  const response = await openPage(page, "/not/a/meeting");
   expect(response.status()).toBe(404);
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
 });

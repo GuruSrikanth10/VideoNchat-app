@@ -6,6 +6,7 @@ const {
   tile,
   openPeople,
   leaveMeeting,
+  openPage,
 } = require("./support");
 
 async function meeting(openUser, room, names) {
@@ -48,7 +49,7 @@ test("a locked meeting lets people in only when the host admits them @smoke", as
   await expect(bob.locator("#toasts")).toContainText("The meeting is locked");
 
   const carol = await openUser();
-  await carol.goto(`/${room}`);
+  await openPage(carol, `/${room}`);
   await nameField(carol).fill("Carol");
   await expect(carol.locator("#room-info")).toContainText("This meeting is locked");
   await carol.getByRole("button", { name: "Ask to join" }).click();
@@ -68,7 +69,7 @@ test("a host can turn someone away", async ({ openUser, room }) => {
   await alice.getByRole("switch", { name: "Lock meeting" }).check();
 
   const carol = await openUser();
-  await carol.goto(`/${room}`);
+  await openPage(carol, `/${room}`);
   await nameField(carol).fill("Carol");
   await carol.getByRole("button", { name: "Ask to join" }).click();
   await alice.getByRole("button", { name: "Deny Carol" }).click();
