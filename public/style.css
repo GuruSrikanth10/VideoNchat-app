@@ -39,6 +39,10 @@
   color: var(--light1);
 }
 
+.logo_text h1 {
+  font-size: 1.5em;
+}
+
 .logo_text {
   text-align: center;
   position: relative;
@@ -173,6 +177,38 @@ video {
 
 .options__button:hover {
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.8);
+}
+
+/* Controls are real <button>s now: reset the browser's default look. */
+button.options__button,
+#network-content,
+.header__back {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.header__back {
+  background: none;
+}
+
+button:focus-visible {
+  outline: 3px solid var(--light1);
+  outline-offset: 2px;
+}
+
+.off {
+  color: red;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .background__red {

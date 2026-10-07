@@ -229,8 +229,9 @@ Swal.fire({
   }
 
   const unsetMuteButton = () => {
-    const html = `<i class="fas fa-microphone"></i>`;
+    const html = `<i class="fas fa-microphone" aria-hidden="true"></i>`;
     muteButton.innerHTML = html;
+    muteButton.setAttribute("aria-pressed", "false");
     Swal.fire({
       position: "top-end",
       text: "Your mic is on",
@@ -241,8 +242,9 @@ Swal.fire({
   };
 
   const setMuteButton = () => {
-    const html = `<i class="fas fa-microphone-slash" style="color:red;"></i>`;
+    const html = `<i class="fas fa-microphone-slash off" aria-hidden="true"></i>`;
     muteButton.innerHTML = html;
+    muteButton.setAttribute("aria-pressed", "true");
     Swal.fire({
       position: "top-end",
       text: "You are muted",
@@ -269,8 +271,9 @@ Swal.fire({
   });
 
   const setVideoButton = () => {
-    const html = `<i class="fas fa-video"></i>`;
+    const html = `<i class="fas fa-video" aria-hidden="true"></i>`;
     stopVideo.innerHTML = html;
+    stopVideo.setAttribute("aria-pressed", "false");
     Swal.fire({
       position: "top-end",
       text: "Your cam is on",
@@ -281,8 +284,9 @@ Swal.fire({
   };
 
   const unsetVideoButton = () => {
-    const html = `<i class="fas fa-video-slash" style="color:red;"></i>`;
+    const html = `<i class="fas fa-video-slash off" aria-hidden="true"></i>`;
     stopVideo.innerHTML = html;
+    stopVideo.setAttribute("aria-pressed", "true");
     Swal.fire({
       position: "top-end",
       text: "Your cam is off",
