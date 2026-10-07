@@ -132,11 +132,11 @@ for (const errorName of ["NotAllowedError", "NotFoundError"]) {
     const alice = await openUser();
     await joinMeeting(alice, room, "Alice");
     const viewer = await openUser({ initScript: failingMedia(errorName) });
+    await viewer.goto(`/${room}`);
+    await expect(viewer.locator("#media-status")).toContainText(
+      "You can still join to see and hear everyone.",
+    );
     await joinMeeting(viewer, room, "Viewer");
-
-    const dialog = viewer.getByRole("dialog");
-    await expect(dialog).toContainText("You joined without camera or microphone");
-    await dialog.getByRole("button", { name: "Continue" }).click();
     await expectTiles(viewer, 1); // Alice's video
     await expect(tile(alice, "Viewer")).toBeVisible(); // everyone is visible
     await viewer.getByRole("button", { name: "Mute" }).click(); // must not throw

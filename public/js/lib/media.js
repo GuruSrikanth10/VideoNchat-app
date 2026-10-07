@@ -12,6 +12,8 @@ export class LocalMedia extends EventTarget {
   cameraEnabled = true;
   error = null; // the getUserMedia error, if devices couldn't start
   deviceIds = { audioinput: null, videoinput: null, audiooutput: null };
+  // Devices chosen last time: asked for, but not required, at start.
+  preferred = {};
 
   // The self view shows whatever the camera currently is.
   stream = new MediaStream();
@@ -39,8 +41,8 @@ export class LocalMedia extends EventTarget {
     for (const attempt of attempts) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: attempt.audio && this.#constraints("audioinput", AUDIO),
-          video: attempt.video && this.#constraints("videoinput", VIDEO),
+          audio: attempt.audio && this.#constraints("audioinput", AUDIO, { preferred: true }),
+          video: attempt.video && this.#constraints("videoinput", VIDEO, { preferred: true }),
         });
         this.#setTrack("mic", stream.getAudioTracks()[0] ?? null);
         this.#setTrack("camera", stream.getVideoTracks()[0] ?? null);
@@ -152,9 +154,13 @@ export class LocalMedia extends EventTarget {
     this.camera?.stop();
   }
 
-  #constraints(kind, base) {
-    const deviceId = this.deviceIds[kind];
-    return deviceId ? { ...base, deviceId: { exact: deviceId } } : base;
+  // An explicitly chosen device is required ("exact"); a remembered one
+  // is only preferred ("ideal"), so a missing device can't break startup.
+  #constraints(kind, base, { preferred = false } = {}) {
+    const chosen = this.deviceIds[kind];
+    if (chosen) return { ...base, deviceId: { exact: chosen } };
+    const remembered = preferred ? this.preferred[kind] : null;
+    return remembered ? { ...base, deviceId: { ideal: remembered } } : base;
   }
 
   #setTrack(slot, track) {

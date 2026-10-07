@@ -43,11 +43,13 @@ const test = base.test.extend({
 
 const nameField = (page) => page.getByRole("textbox", { name: "Your name" });
 
-async function joinMeeting(page, room, name) {
+// Opens the meeting's lobby, optionally changes devices there, and joins.
+async function joinMeeting(page, room, name, { beforeJoin } = {}) {
   await page.goto(`/${room}`);
   await nameField(page).fill(name);
-  await page.getByRole("button", { name: "Join meeting" }).click();
-  await expect(nameField(page)).toBeHidden();
+  if (beforeJoin) await beforeJoin(page);
+  await page.getByRole("button", { name: "Join now" }).click();
+  await expect(page.locator("body")).toHaveAttribute("data-state", "call");
   await expect(page.locator("#participant-count")).not.toHaveText("Joining…");
 }
 

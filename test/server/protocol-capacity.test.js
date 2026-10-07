@@ -17,3 +17,15 @@ test("rooms refuse people beyond MAX_ROOM_SIZE", async () => {
     error: "room-full",
   });
 });
+
+test("the lobby can see how many people are in a room without joining", async () => {
+  const room = uniqueRoom();
+  const lobby = await app.client();
+  const peek = () => lobby.timeout(2000).emitWithAck("room:peek", { roomId: room });
+  assert.deepEqual(await peek(), { ok: true, count: 0, full: false, maxRoomSize: 2 });
+  await joinRoom(await app.client(), room, "One");
+  await joinRoom(await app.client(), room, "Two");
+  assert.deepEqual(await peek(), { ok: true, count: 2, full: true, maxRoomSize: 2 });
+  const bad = await lobby.timeout(2000).emitWithAck("room:peek", { roomId: "../x" });
+  assert.equal(bad.error, "invalid-room");
+});

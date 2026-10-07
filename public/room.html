@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="/css/app.css" />
     <script type="module" src="/js/room.js"></script>
   </head>
-  <body class="room-page">
+  <body class="room-page" data-state="lobby">
     <a class="skip-link" href="#controls">Skip to call controls</a>
 
     <header class="topbar">
@@ -36,7 +36,76 @@
       <button type="button" class="btn btn--secondary banner__action" hidden></button>
     </div>
 
-    <main class="room">
+    <main id="lobby" class="lobby" aria-labelledby="lobby-title">
+      <section class="lobby__preview" aria-label="Your camera and microphone">
+        <figure class="tile lobby__tile" data-self="true" data-video-off="true">
+          <video
+            id="lobby-video"
+            class="tile__video tile__video--mirrored"
+            autoplay
+            playsinline
+            muted
+          ></video>
+          <div class="tile__avatar" aria-hidden="true">
+            <span class="tile__initials" id="lobby-initials">?</span>
+          </div>
+          <div class="lobby__toggles">
+            <button id="lobby-mic" class="round-btn" type="button">
+              <svg data-icon="mic"></svg>
+            </button>
+            <button id="lobby-camera" class="round-btn" type="button">
+              <svg data-icon="video"></svg>
+            </button>
+          </div>
+          <div class="meter" aria-hidden="true">
+            <span id="mic-meter" class="meter__level"></span>
+          </div>
+        </figure>
+        <div id="media-status" class="lobby__status" role="status" hidden>
+          <p class="lobby__status-text"></p>
+          <button id="media-retry" type="button" class="btn btn--secondary">Try again</button>
+        </div>
+      </section>
+
+      <form id="lobby-form" class="lobby__form" novalidate>
+        <h1 id="lobby-title">Ready to join?</h1>
+        <p id="room-info" class="lobby__info" aria-live="polite">Checking who's here…</p>
+
+        <div class="field-group">
+          <label for="lobby-name">Your name</label>
+          <input
+            id="lobby-name"
+            name="name"
+            autocomplete="name"
+            maxlength="40"
+            required
+            aria-describedby="name-hint name-error"
+          />
+          <p id="name-hint" class="field__hint">Shown to everyone in the meeting.</p>
+          <p id="name-error" class="form-error" role="alert"></p>
+        </div>
+
+        <details class="devices">
+          <summary>Camera, microphone and speaker</summary>
+          <div class="field-group">
+            <label for="lobby-videoinput">Camera</label>
+            <select id="lobby-videoinput"></select>
+          </div>
+          <div class="field-group">
+            <label for="lobby-audioinput">Microphone</label>
+            <select id="lobby-audioinput"></select>
+          </div>
+          <div class="field-group">
+            <label for="lobby-audiooutput">Speaker</label>
+            <select id="lobby-audiooutput"></select>
+          </div>
+        </details>
+
+        <button id="join-button" class="btn btn--primary btn--large" type="submit">Join now</button>
+      </form>
+    </main>
+
+    <main class="room" hidden>
       <h1 class="visually-hidden">Meeting</h1>
       <section class="stage" aria-label="Participants">
         <div id="tiles" class="tiles" data-count="0" data-screens="0"></div>
@@ -69,7 +138,7 @@
       </aside>
     </main>
 
-    <nav id="controls" class="controls" aria-label="Call controls" tabindex="-1">
+    <nav id="controls" class="controls" aria-label="Call controls" tabindex="-1" hidden>
       <div class="controls__group">
         <button id="mic" class="control" type="button">
           <svg data-icon="mic"></svg>
@@ -100,12 +169,37 @@
           <svg data-icon="user-plus"></svg>
           <span class="control__label">Invite</span>
         </button>
+        <button id="settings" class="control" type="button" aria-haspopup="dialog">
+          <svg data-icon="settings"></svg>
+          <span class="control__label">Settings</span>
+        </button>
       </div>
       <button id="leave" class="control control--danger" type="button">
         <svg data-icon="phone-off"></svg>
         <span class="control__label">Leave</span>
       </button>
     </nav>
+
+    <dialog id="settings-dialog" class="dialog" aria-labelledby="settings-title">
+      <form method="dialog">
+        <h2 id="settings-title" class="dialog__title">Settings</h2>
+        <div class="field-group">
+          <label for="call-videoinput">Camera</label>
+          <select id="call-videoinput"></select>
+        </div>
+        <div class="field-group">
+          <label for="call-audioinput">Microphone</label>
+          <select id="call-audioinput"></select>
+        </div>
+        <div class="field-group">
+          <label for="call-audiooutput">Speaker</label>
+          <select id="call-audiooutput"></select>
+        </div>
+        <div class="dialog__actions">
+          <button class="btn btn--primary" value="close">Done</button>
+        </div>
+      </form>
+    </dialog>
 
     <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
   </body>

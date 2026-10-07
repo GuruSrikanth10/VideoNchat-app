@@ -9,7 +9,7 @@ test("the meeting page has no axe-core violations", async ({ openUser, room }) =
   expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
 });
 
-test("the name prompt and leave page have no axe-core violations", async ({ openUser, room }) => {
+test("the lobby and leave page have no axe-core violations", async ({ openUser, room }) => {
   const page = await openUser();
   await page.goto(`/${room}`);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);

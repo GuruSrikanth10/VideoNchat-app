@@ -331,6 +331,161 @@ button:disabled {
   display: flex;
 }
 
+/* -------------------------------------------------------------- lobby */
+
+.lobby {
+  grid-row: 3 / 5;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  align-items: center;
+  align-content: center;
+  gap: clamp(24px, 5vw, 64px);
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  padding: 16px clamp(16px, 4vw, 40px) 32px;
+  overflow-y: auto;
+}
+
+.lobby__tile {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+}
+
+.lobby__toggles {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  display: flex;
+  gap: 12px;
+  transform: translateX(-50%);
+}
+
+.round-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 50%;
+  background: rgb(20 22 28 / 70%);
+  color: #fff;
+}
+
+.round-btn:hover {
+  background: rgb(20 22 28 / 90%);
+}
+
+.round-btn[data-active="true"] {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.meter {
+  position: absolute;
+  left: 16px;
+  bottom: 30px;
+  width: 64px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 25%);
+}
+
+.meter__level {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--success);
+  transform: scaleX(var(--level, 0));
+  transform-origin: left;
+  transition: transform 0.1s linear;
+}
+
+.lobby__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--warning);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.lobby__status-text {
+  flex: 1 1 260px;
+}
+
+.lobby__form h1 {
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+}
+
+.lobby__info {
+  min-height: 1.5em;
+  margin: 8px 0 20px;
+  color: var(--text-muted);
+}
+
+.lobby__form .btn--large {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.field-group {
+  margin-top: 16px;
+}
+
+.field-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.field-group input,
+.field-group select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.field-group input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.field-group .form-error {
+  min-height: 0;
+  margin-top: 6px;
+}
+
+.field-group .form-error:empty {
+  display: none;
+}
+
+/* The participant count only matters once you're in the call. */
+[data-state="lobby"] #participant-count {
+  display: none;
+}
+
+.devices {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.devices summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.devices .field-group:first-of-type {
+  margin-top: 12px;
+}
+
 /* ------------------------------------------------------------- tiles */
 
 .tiles {
@@ -897,6 +1052,15 @@ button:disabled {
 }
 
 /* ------------------------------------------------------- small screens */
+
+@media (width <= 860px) {
+  .lobby {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    align-content: start;
+    gap: 24px;
+  }
+}
 
 @media (width <= 760px) {
   :root {

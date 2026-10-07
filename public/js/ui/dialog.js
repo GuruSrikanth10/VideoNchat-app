@@ -69,37 +69,3 @@ export function choiceDialog({ title, body, choices }) {
   actions(form, choices);
   return open(dialog);
 }
-
-// Asks for a display name; can't be dismissed.
-export function nameDialog({ initial = "" } = {}) {
-  const { dialog, form } = build({ title: "What's your name?", className: "dialog--join" });
-  const label = document.createElement("label");
-  label.className = "field";
-  label.htmlFor = "join-name";
-  label.textContent = "Your name";
-  const input = document.createElement("input");
-  input.id = "join-name";
-  input.name = "name";
-  input.autocomplete = "name";
-  input.maxLength = 40;
-  input.required = true;
-  input.value = initial;
-  input.autofocus = true;
-  const hint = document.createElement("p");
-  hint.className = "field__hint";
-  hint.textContent = "Shown to everyone in the meeting.";
-  form.append(label, input, hint);
-  actions(form, [{ label: "Join meeting", value: "join", tone: "primary" }]);
-
-  // A blank name isn't allowed: keep the dialog open and say why.
-  form.addEventListener("submit", (event) => {
-    if (!input.value.trim()) {
-      event.preventDefault();
-      input.setCustomValidity("Please enter your name.");
-      input.reportValidity();
-    }
-  });
-  input.addEventListener("input", () => input.setCustomValidity(""));
-
-  return open(dialog, { onCancel: false }).then(() => input.value.trim().slice(0, 40));
-}

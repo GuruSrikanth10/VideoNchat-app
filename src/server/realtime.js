@@ -6,6 +6,7 @@ const { publicView } = require("./rooms");
 const { createLimiter } = require("./rate-limit");
 const { iceServersFor } = require("./ice");
 const schemas = require("./schemas");
+const { isToken } = require("./tokens");
 
 // Signals held for someone who is reconnecting (bounded).
 const MAX_PENDING_SIGNALS = 500;
@@ -92,6 +93,15 @@ function attachRealtime({ io, rooms, config, logger }) {
       const participant = current();
       if (!participant) return reply({ ok: false, error: "not-joined" });
       reply({ ok: true, iceServers: iceServersFor(config, { user: participant.id }) });
+    });
+
+    // For the lobby: how many people are in a room, without joining it.
+    // Names stay private until you join.
+    handle("room:peek", (payload, reply) => {
+      const roomId = payload?.roomId;
+      if (!isToken(roomId)) return reply({ ok: false, error: "invalid-room" });
+      const count = rooms.get(roomId)?.participants.size ?? 0;
+      reply({ ok: true, count, full: count >= rooms.maxRoomSize, maxRoomSize: rooms.maxRoomSize });
     });
 
     handle("room:leave", (payload, reply) => {

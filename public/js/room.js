@@ -8,8 +8,11 @@ import { local, session } from "./lib/storage.js";
 import { Tiles } from "./ui/tiles.js";
 import { Chat } from "./ui/chat.js";
 import { toast } from "./ui/toast.js";
-import { confirmDialog, choiceDialog, nameDialog } from "./ui/dialog.js";
+import { confirmDialog, choiceDialog } from "./ui/dialog.js";
 import { hydrateIcons, setIcon } from "./ui/icons.js";
+import { Lobby } from "./ui/lobby.js";
+import { DevicePicker, rememberedDevices } from "./ui/devices.js";
+import { SpeakingDetector } from "./lib/audio-levels.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -26,6 +29,7 @@ const tiles = new Tiles($("tiles"));
 const participants = new Map(); // id -> { id, name, audio, video, screen }
 const outbox = []; // signals produced while offline
 const statsHistory = new Map(); // id -> last stats summary
+const speaking = new Map(); // id -> { track, detector }
 
 let self = null; // { id, name, session }
 let mesh = null;
@@ -49,27 +53,52 @@ const chat = new Chat({
 
 // ---------------------------------------------------------------- joining
 
+let lobby = null;
+
 async function main() {
   if (!roomId) return location.assign("/");
-  name = await nameDialog({ initial: local.get(NAME_KEY) ?? "" });
-  local.set(NAME_KEY, name);
-
-  const error = await media.start();
-  tiles.upsert("self", { name, self: true, audio: media.micEnabled, video: media.cameraEnabled });
-  refreshSelfView();
-  updateControls();
-  if (error) showMediaError(error); // not awaited: you can join meanwhile
-
-  await join();
+  media.preferred = rememberedDevices();
+  lobby = new Lobby({
+    media,
+    initialName: local.get(NAME_KEY) ?? "",
+    peek: () => request(socket, "room:peek", { roomId }),
+    onJoin: enterCall,
+  });
+  await lobby.start();
 }
 
+// Called from the lobby. Resolves to true once in the call.
+async function enterCall(chosenName) {
+  name = chosenName;
+  local.set(NAME_KEY, name);
+  if (!(await join())) return false;
+
+  lobby.destroy();
+  document.body.dataset.state = "call";
+  $("lobby").hidden = true;
+  document.querySelector(".room").hidden = false;
+  $("controls").hidden = false;
+  if (matchMedia("(min-width: 1100px)").matches) setChatOpen(true, { focus: false });
+
+  tiles.upsert("self", { name, self: true });
+  refreshSelfView();
+  updateControls();
+  trackSpeaking("self", media.mic);
+  $("controls").focus();
+  return true;
+}
+
+// Resolves to true if we're in the room.
 async function join() {
   const reply = await request(socket, "room:join", {
     roomId,
     name,
     session: session.get(SESSION_KEY) ?? undefined,
   });
-  if (!reply.ok) return handleJoinError(reply.error);
+  if (!reply.ok) {
+    handleJoinError(reply.error);
+    return false;
+  }
 
   const resumed = reply.resumed && self?.id === reply.self.id;
   self = reply.self;
@@ -105,6 +134,7 @@ async function join() {
   sendMediaState();
   hideBanner();
   updateCount();
+  return true;
 }
 
 function createMesh(iceServers) {
@@ -125,6 +155,15 @@ function sendSignal(signal) {
 }
 
 function handleJoinError(error) {
+  if (!self) {
+    // Still in the lobby: let the person try again from there.
+    if (error === "room-full") {
+      toast("This meeting is full right now. Try again in a moment.", { tone: "warning" });
+    } else {
+      toast(`Couldn't join the meeting (${describeError(error)}).`, { tone: "error" });
+    }
+    return;
+  }
   if (error === "room-full") {
     return choiceDialog({
       title: "This meeting is full",
@@ -171,6 +210,7 @@ function removeParticipant(id, { quiet = false } = {}) {
   const participant = participants.get(id);
   participants.delete(id);
   statsHistory.delete(id);
+  trackSpeaking(id, null);
   mesh?.remove(id);
   tiles.remove(id);
   if (participant && !quiet) toast(`${participant.name} left`);
@@ -185,6 +225,7 @@ function showRemoteMedia(id) {
   // A fresh MediaStream makes the <video> pick up newly arrived tracks.
   const tracks = streams.media.getTracks();
   if (tracks.length) tiles.upsert(id, { stream: new MediaStream(tracks) });
+  trackSpeaking(id, streams.media.getAudioTracks()[0] ?? null);
   if (participant.screen && streams.screen.getTracks().length) {
     tiles.showScreen(id, {
       name: participant.name,
@@ -236,11 +277,17 @@ function refreshSelfView() {
 
 media.addEventListener("trackchange", ({ detail }) => {
   mesh?.setTrack(detail.slot, detail.track);
-  refreshSelfView();
+  if (joined) {
+    refreshSelfView();
+    if (detail.slot === "mic") trackSpeaking("self", detail.track);
+  }
 });
 media.addEventListener("change", () => {
+  if (!joined) return;
   refreshSelfView();
   updateControls();
+  // e.g. the camera started only after joining (a slow permission prompt).
+  sendMediaState();
 });
 media.addEventListener("deviceended", ({ detail }) => {
   toast(detail.slot === "mic" ? "Microphone disconnected" : "Camera disconnected", {
@@ -265,31 +312,20 @@ function sendMediaState() {
   });
 }
 
-function showMediaError(error) {
-  const reasons = {
-    NotAllowedError:
-      "Camera and microphone access is blocked. Allow it in your browser's site settings, then try again.",
-    NotFoundError: "No camera or microphone was found.",
-    NotReadableError: "Your camera or microphone is being used by another app.",
-    OverconstrainedError: "Your camera doesn't support the requested settings.",
-    SecurityError: "Camera and microphone need a secure (https) connection.",
-  };
-  const partial = media.mic || media.camera;
-  return choiceDialog({
-    title: partial
-      ? `You joined without ${media.mic ? "a camera" : "a microphone"}`
-      : "You joined without camera or microphone",
-    body: [
-      reasons[error.name] ?? "Your camera or microphone couldn't start.",
-      "You can still see and hear everyone in the call.",
-    ],
-    choices: [
-      { label: "Try again", value: "retry" },
-      { label: "Continue", value: "continue", tone: "primary", autofocus: true },
-    ],
-  }).then((choice) => {
-    if (choice === "retry") location.reload();
+// Highlights whoever is speaking.
+function trackSpeaking(id, track) {
+  const current = speaking.get(id);
+  if (current?.track === track) return;
+  current?.detector.stop();
+  speaking.delete(id);
+  tiles.setSpeaking(id, false);
+  if (!track) return;
+  const detector = new SpeakingDetector(track, (isSpeaking) => {
+    // Muted people aren't highlighted even if their mic picks up noise.
+    const muted = id === "self" ? !media.micEnabled : !participants.get(id)?.audio;
+    tiles.setSpeaking(id, isSpeaking && !muted);
   });
+  speaking.set(id, { track, detector });
 }
 
 // ---------------------------------------------------------------- controls
@@ -349,13 +385,28 @@ $("share").addEventListener("click", async () => {
 $("chat-toggle").addEventListener("click", () => setChatOpen(!document.body.dataset.chatOpen));
 $("chat-close").addEventListener("click", () => setChatOpen(false));
 
-function setChatOpen(open) {
+function setChatOpen(open, { focus = true } = {}) {
   if (open) document.body.dataset.chatOpen = "true";
   else delete document.body.dataset.chatOpen;
   $("chat-toggle").setAttribute("aria-expanded", String(open));
   $("chat-unread").hidden = true;
-  if (open) $("chat-input").focus();
+  if (open && focus) $("chat-input").focus();
 }
+
+const callDevices = new DevicePicker({
+  media,
+  selects: {
+    videoinput: $("call-videoinput"),
+    audioinput: $("call-audioinput"),
+    audiooutput: $("call-audiooutput"),
+  },
+  onSpeaker: (deviceId) => tiles.setSpeaker(deviceId),
+});
+
+$("settings").addEventListener("click", async () => {
+  await callDevices.refresh();
+  $("settings-dialog").showModal();
+});
 
 // Unread badge while the chat is closed (or hidden on small screens).
 $("messages").addEventListener("chat:new", ({ detail }) => {
