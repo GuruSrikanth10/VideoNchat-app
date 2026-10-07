@@ -3,6 +3,7 @@
 import { LevelMeter } from "../lib/audio-levels.js";
 import { DevicePicker } from "./devices.js";
 import { setIcon } from "./icons.js";
+import { describeKeys, shortcutFor } from "./shortcuts.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -41,8 +42,9 @@ export class Lobby {
   #joining = false;
 
   // peek() resolves to { ok, count, full }; onJoin(name) resolves to true
-  // once in the call (false to stay in the lobby).
-  constructor({ media, initialName, peek, onJoin }) {
+  // once in the call (false to stay in the lobby). toggleMic() and
+  // toggleCamera() are shared with the call's own buttons.
+  constructor({ media, initialName, peek, onJoin, toggleMic, toggleCamera }) {
     this.#media = media;
     this.#peek = peek;
     this.#onJoin = onJoin;
@@ -55,14 +57,8 @@ export class Lobby {
       this.#updateInitials();
     });
 
-    $("lobby-mic").addEventListener("click", () => {
-      media.setMicEnabled(!media.micEnabled);
-    });
-    $("lobby-camera").addEventListener("click", async () => {
-      $("lobby-camera").disabled = true;
-      await media.setCameraEnabled(!(media.cameraEnabled && media.camera));
-      $("lobby-camera").disabled = false;
-    });
+    $("lobby-mic").addEventListener("click", toggleMic);
+    $("lobby-camera").addEventListener("click", toggleCamera);
     $("media-retry").addEventListener("click", () => this.#startMedia());
     $("lobby-form").addEventListener("submit", (event) => {
       event.preventDefault();
@@ -133,13 +129,13 @@ export class Lobby {
     mic.disabled = !media.mic;
     mic.dataset.active = String(!micOn);
     mic.setAttribute("aria-label", micOn ? "Turn off microphone" : "Turn on microphone");
-    mic.title = mic.getAttribute("aria-label");
+    mic.title = `${mic.getAttribute("aria-label")} (${describeKeys(shortcutFor("mic"))})`;
     setIcon(mic.querySelector("svg"), micOn ? "mic" : "mic-off");
 
     const camera = $("lobby-camera");
     camera.dataset.active = String(!cameraOn);
     camera.setAttribute("aria-label", cameraOn ? "Turn off camera" : "Turn on camera");
-    camera.title = camera.getAttribute("aria-label");
+    camera.title = `${camera.getAttribute("aria-label")} (${describeKeys(shortcutFor("camera"))})`;
     setIcon(camera.querySelector("svg"), cameraOn ? "video" : "video-off");
 
     // Restart the meter whenever the microphone track changes.

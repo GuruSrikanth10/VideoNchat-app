@@ -23,7 +23,17 @@
         <span class="visually-hidden">(opens in a new tab)</span>
       </a>
       <div class="topbar__info">
-        <span class="pill" id="participant-count">Joining…</span>
+        <button
+          id="people-count"
+          class="pill pill--button"
+          type="button"
+          aria-controls="people"
+          aria-expanded="false"
+        >
+          <svg data-icon="users"></svg>
+          <span class="visually-hidden">People:</span>
+          <span id="participant-count">Joining…</span>
+        </button>
         <span class="pill pill--quality" id="ping" role="status" data-quality="unknown">
           <svg data-icon="signal"></svg>
           <span id="ping-value">–</span>
@@ -221,11 +231,26 @@
           <select id="call-audiooutput"></select>
         </div>
         <div class="dialog__actions">
+          <button id="show-shortcuts" class="btn btn--secondary" type="button">
+            <svg data-icon="keyboard"></svg>
+            Keyboard shortcuts
+          </button>
           <button class="btn btn--primary" value="close">Done</button>
         </div>
       </form>
     </dialog>
 
+    <dialog id="shortcuts-dialog" class="dialog" aria-labelledby="shortcuts-title">
+      <form method="dialog">
+        <h2 id="shortcuts-title" class="dialog__title">Keyboard shortcuts</h2>
+        <dl id="shortcuts-list" class="shortcuts"></dl>
+        <div class="dialog__actions">
+          <button class="btn btn--primary" value="close">Close</button>
+        </div>
+      </form>
+    </dialog>
+
     <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+    <div id="announcer" class="visually-hidden" aria-live="polite"></div>
   </body>
 </html>

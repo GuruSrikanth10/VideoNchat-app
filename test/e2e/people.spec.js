@@ -47,3 +47,20 @@ test("only one side panel is open at a time, and Escape closes it", async ({ ope
   await expect(chatToggle).toBeFocused();
   await expect(chatToggle).toHaveAttribute("aria-expanded", "false");
 });
+
+test("on a phone the participant count opens People", async ({ openUser, room }) => {
+  const phone = await openUser();
+  await phone.setViewportSize({ width: 360, height: 740 });
+  await joinMeeting(phone, room, "Phone");
+  await expect(phone.locator("#people-toggle")).toBeHidden();
+
+  const count = phone.getByRole("button", { name: "People: Just you" });
+  await count.click();
+  await expect(phone.locator("#people")).toBeVisible();
+  await expect(count).toHaveAttribute("aria-expanded", "true");
+  await expect(phone.getByRole("heading", { name: "People (1)" })).toBeVisible();
+
+  await phone.getByRole("button", { name: "Close people" }).click();
+  await expect(phone.locator("#people")).toBeHidden();
+  await expect(count).toBeFocused();
+});

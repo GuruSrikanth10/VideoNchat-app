@@ -22,3 +22,13 @@ export function toast(message, { tone = "info", duration = 4000 } = {}) {
     setTimeout(() => item.remove(), 300);
   }, duration);
 }
+
+// Tells screen reader users about a change they didn't move focus to,
+// such as the mic turning off from a keyboard shortcut.
+export function announce(message) {
+  const region = document.getElementById("announcer");
+  if (!region) return;
+  // Clear first so the same message twice in a row is still read out.
+  region.textContent = "";
+  setTimeout(() => (region.textContent = message), 50);
+}

@@ -8,12 +8,20 @@ import { local, session } from "./lib/storage.js";
 import { Tiles } from "./ui/tiles.js";
 import { Chat } from "./ui/chat.js";
 import { People } from "./ui/people.js";
-import { toast } from "./ui/toast.js";
+import { toast, announce } from "./ui/toast.js";
 import { confirmDialog, choiceDialog } from "./ui/dialog.js";
 import { hydrateIcons, setIcon } from "./ui/icons.js";
 import { Lobby } from "./ui/lobby.js";
 import { DevicePicker, rememberedDevices } from "./ui/devices.js";
 import { SpeakingDetector } from "./lib/audio-levels.js";
+import {
+  SHORTCUTS,
+  bindShortcuts,
+  keysFor,
+  describeKeys,
+  ariaFor,
+  shortcutFor,
+} from "./ui/shortcuts.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -67,6 +75,8 @@ async function main() {
     initialName: local.get(NAME_KEY) ?? "",
     peek: () => request(socket, "room:peek", { roomId }),
     onJoin: enterCall,
+    toggleMic,
+    toggleCamera,
   });
   await lobby.start();
 }
@@ -244,6 +254,7 @@ function showRemoteMedia(id) {
 }
 
 function renderPeople() {
+  $("people-heading").textContent = `People (${participants.size + 1})`;
   people.render([
     {
       id: "self",
@@ -352,48 +363,82 @@ function trackSpeaking(id, track) {
 
 // ---------------------------------------------------------------- controls
 
-function setControl(button, { label, iconName, active }) {
+function setControl(button, { label, tooltip, iconName, active }) {
   button.querySelector(".control__label").textContent = label;
   button.setAttribute("aria-label", label);
   button.dataset.active = String(active);
   setIcon(button.querySelector("svg"), iconName);
+  setTooltip(button, tooltip);
+}
+
+// A hover/focus hint with the button's shortcut, e.g. "Turn off microphone
+// (Ctrl+D)". Hidden from screen readers, who get aria-keyshortcuts instead.
+function setTooltip(button, text) {
+  let tip = button.querySelector(".control__tooltip");
+  if (!tip) {
+    tip = document.createElement("span");
+    tip.className = "control__tooltip";
+    tip.setAttribute("aria-hidden", "true");
+    button.append(tip);
+  }
+  const shortcut = shortcutFor(button.dataset.shortcut);
+  tip.textContent = shortcut ? `${text} (${describeKeys(shortcut)})` : text;
 }
 
 function updateControls() {
   const micOn = media.micEnabled && Boolean(media.mic);
   setControl($("mic"), {
     label: micOn ? "Mute" : "Unmute",
+    tooltip: micOn ? "Turn off microphone" : "Turn on microphone",
     iconName: micOn ? "mic" : "mic-off",
     active: !micOn,
   });
   const cameraOn = media.cameraEnabled && Boolean(media.camera);
   setControl($("camera"), {
     label: cameraOn ? "Stop video" : "Start video",
+    tooltip: cameraOn ? "Turn off camera" : "Turn on camera",
     iconName: cameraOn ? "video" : "video-off",
     active: !cameraOn,
   });
   $("share").hidden = !ScreenShare.supported();
   setControl($("share"), {
     label: share.active ? "Stop presenting" : "Present",
+    tooltip: share.active ? "Stop presenting" : "Present your screen",
     iconName: share.active ? "monitor-x" : "monitor-up",
     active: share.active,
   });
 }
 
-$("mic").addEventListener("click", () => {
-  if (!media.mic) return toast("No microphone is available.", { tone: "warning" });
+// Used by the lobby and call buttons and the shortcuts. Each resolves to
+// what changed, e.g. "Microphone off" (or null if nothing did).
+async function toggleMic() {
+  if (!media.mic) {
+    toast("No microphone is available.", { tone: "warning" });
+    return null;
+  }
   media.setMicEnabled(!media.micEnabled);
-  sendMediaState();
-});
+  return media.micEnabled ? "Microphone on" : "Microphone off";
+}
 
-$("camera").addEventListener("click", async () => {
+let cameraBusy = false;
+async function toggleCamera() {
+  if (cameraBusy) return null;
+  cameraBusy = true;
+  const buttons = [$("camera"), $("lobby-camera")];
+  for (const button of buttons) button.disabled = true;
   const turningOn = !(media.cameraEnabled && media.camera);
-  $("camera").disabled = true;
   const done = await media.setCameraEnabled(turningOn);
-  $("camera").disabled = false;
-  if (!done) toast("The camera couldn't start.", { tone: "warning" });
-  sendMediaState();
-});
+  for (const button of buttons) button.disabled = false;
+  cameraBusy = false;
+  if (!done) {
+    toast("The camera couldn't start.", { tone: "warning" });
+    return null;
+  }
+  return turningOn ? "Camera on" : "Camera off";
+}
+
+$("mic").addEventListener("click", toggleMic);
+$("camera").addEventListener("click", toggleCamera);
 
 $("share").addEventListener("click", async () => {
   if (share.active) return share.stop();
@@ -405,39 +450,112 @@ $("share").addEventListener("click", async () => {
 });
 
 // Side panels (chat, people): at most one is open at a time.
+// People has two toggles: its control button and the participant count.
 const PANELS = {
-  chat: { toggle: "chat-toggle", focus: "chat-input" },
-  people: { toggle: "people-toggle", focus: "people-close" },
+  chat: { toggles: ["chat-toggle"], focus: "chat-input" },
+  people: { toggles: ["people-toggle", "people-count"], focus: "people-close" },
 };
 
 function setPanel(panel, { focus = true } = {}) {
+  const previous = document.body.dataset.panel;
+  // Focus inside a panel that closes would be lost; it goes to the toggle.
+  const stranded = previous && previous !== panel && $(previous).contains(document.activeElement);
   if (panel) document.body.dataset.panel = panel;
   else delete document.body.dataset.panel;
-  for (const [key, { toggle }] of Object.entries(PANELS)) {
-    $(toggle).setAttribute("aria-expanded", String(key === panel));
+  for (const [key, { toggles }] of Object.entries(PANELS)) {
+    for (const id of toggles) $(id).setAttribute("aria-expanded", String(key === panel));
   }
   if (panel === "chat") $("chat-unread").hidden = true;
   if (panel && focus) $(PANELS[panel].focus).focus();
+  else if (stranded) {
+    const toggles = PANELS[previous].toggles.map($);
+    (toggles.find((el) => el.checkVisibility?.() ?? true) ?? toggles[0]).focus();
+  }
 }
 
 const togglePanel = (panel) => setPanel(document.body.dataset.panel === panel ? null : panel);
 
-for (const [key, { toggle }] of Object.entries(PANELS)) {
-  $(toggle).addEventListener("click", () => togglePanel(key));
+for (const [key, { toggles }] of Object.entries(PANELS)) {
+  for (const id of toggles) $(id).addEventListener("click", () => togglePanel(key));
   $(key).addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    setPanel(null);
-    $(toggle).focus();
+    if (event.key === "Escape") setPanel(null);
   });
 }
-$("chat-close").addEventListener("click", () => {
-  setPanel(null);
-  $("chat-toggle").focus();
+$("chat-close").addEventListener("click", () => setPanel(null));
+$("people-close").addEventListener("click", () => setPanel(null));
+
+// ------------------------------------------------------------- shortcuts
+
+const inCall = () => document.body.dataset.state === "call";
+const dialogOpen = () => Boolean(document.querySelector("dialog[open]"));
+
+bindShortcuts(document, {
+  mic: async () => announceChange(await toggleMic()),
+  camera: async () => announceChange(await toggleCamera()),
+  chat: () => inCall() && !dialogOpen() && togglePanel("chat"),
+  people: () => inCall() && !dialogOpen() && togglePanel("people"),
+  help: () => {
+    const help = $("shortcuts-dialog");
+    if (help.open) help.close();
+    else if (!dialogOpen()) help.showModal();
+  },
 });
-$("people-close").addEventListener("click", () => {
-  setPanel(null);
-  $("people-toggle").focus();
+
+// Shortcuts change things without moving focus, so say what happened.
+function announceChange(message) {
+  if (message) announce(message);
+}
+
+function renderShortcuts() {
+  const rows = SHORTCUTS.map(({ description, ...shortcut }) => [description, keysFor(shortcut)]);
+  rows.push(["Close a panel or dialog", ["Esc"]]);
+  $("shortcuts-list").replaceChildren(
+    ...rows.map(([description, keys]) => {
+      const row = document.createElement("div");
+      row.className = "shortcut";
+      const term = document.createElement("dt");
+      term.textContent = description;
+      const value = document.createElement("dd");
+      value.append(
+        ...keys.map((key) => {
+          const kbd = document.createElement("kbd");
+          kbd.textContent = key;
+          return kbd;
+        }),
+      );
+      row.append(term, value);
+      return row;
+    }),
+  );
+}
+renderShortcuts();
+
+$("show-shortcuts").addEventListener("click", () => {
+  $("settings-dialog").close();
+  $("shortcuts-dialog").showModal();
 });
+
+// Tooltips and aria-keyshortcuts for the buttons that have shortcuts.
+for (const [id, action] of [
+  ["mic", "mic"],
+  ["camera", "camera"],
+  ["chat-toggle", "chat"],
+  ["people-toggle", "people"],
+  ["lobby-mic", "mic"],
+  ["lobby-camera", "camera"],
+]) {
+  $(id).dataset.shortcut = action;
+  $(id).setAttribute("aria-keyshortcuts", ariaFor(shortcutFor(action)));
+}
+for (const [id, text] of [
+  ["chat-toggle", "Chat with everyone"],
+  ["people-toggle", "Show everyone"],
+  ["invite", "Invite people"],
+  ["settings", "Settings"],
+  ["leave", "Leave the meeting"],
+]) {
+  setTooltip($(id), text);
+}
 
 const callDevices = new DevicePicker({
   media,
