@@ -1,15 +1,22 @@
+const pino = require("pino");
 const { io: connect } = require("socket.io-client");
 const { createServer } = require("../../app");
+const { loadConfig } = require("../../src/server/config");
 
-// Starts the app on a random local port.
-async function startTestServer() {
-  const { server, io } = createServer();
+// Starts the app on a random local port. Every log line is captured in
+// `logs` (at the most verbose level) so tests can inspect them.
+async function startTestServer(env = {}) {
+  const config = loadConfig({ NODE_ENV: "test", ...env });
+  const logs = [];
+  const logger = pino({ level: "trace" }, { write: (line) => logs.push(line) });
+  const { server, io } = createServer({ config, logger });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const url = `http://127.0.0.1:${server.address().port}`;
   const clients = new Set();
 
   return {
     url,
+    logs,
     // A connected Socket.IO client using the WebSocket transport only.
     async client() {
       const socket = connect(url, {

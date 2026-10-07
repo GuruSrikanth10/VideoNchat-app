@@ -84,7 +84,7 @@ test("start() listens on the PORT environment variable", async () => {
 
   const child = spawn(process.execPath, ["-e", "require('./app').start()"], {
     cwd: path.join(__dirname, "../.."),
-    env: { ...process.env, PORT: String(port) },
+    env: { ...process.env, PORT: String(port), LOG_LEVEL: "info" },
   });
   try {
     const output = await new Promise((resolve, reject) => {
@@ -92,7 +92,7 @@ test("start() listens on the PORT environment variable", async () => {
       child.stderr.once("data", (data) => reject(new Error(String(data))));
       child.once("exit", (code) => reject(new Error(`exited with ${code}`)));
     });
-    assert.match(output, new RegExp(`Listening on port ${port}`));
+    assert.equal(JSON.parse(output).port, port);
     assert.equal((await fetch(`http://127.0.0.1:${port}/leave`)).status, 200);
   } finally {
     child.kill();

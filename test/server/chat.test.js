@@ -85,5 +85,6 @@ test("message contents and names are not logged", async (t) => {
   const received = nextEvent(bob, "createMessage");
   alice.emit("message", "top secret plans");
   await received;
+  lines.push(...app.logs);
   assert.ok(!lines.some((line) => /top secret|Alice/.test(line)), lines.join("\n"));
 });
