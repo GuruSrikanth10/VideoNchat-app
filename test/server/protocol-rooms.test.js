@@ -125,6 +125,26 @@ test("a reconnecting tab resumes its place silently with its session", async () 
   assert.equal((await signal)[0].from, aliceJoin.self.id);
 });
 
+test("signals sent while someone reconnects are delivered when they're back", async () => {
+  const room = uniqueRoom();
+  const alice = await app.client();
+  const bob = await app.client();
+  const a = await joinRoom(alice, room, "Alice");
+  const { self } = await joinRoom(bob, room, "Bob");
+
+  bob.io.engine.close();
+  await new Promise((resolve) => setTimeout(resolve, 100)); // server notices the drop
+  const sent = await ack(alice, "rtc:signal", { to: self.id, candidate: { candidate: "c1" } });
+  assert.deepEqual(sent, { ok: true, queued: true });
+
+  const bobAgain = await app.client();
+  const delivered = nextEvent(bobAgain, "rtc:signal");
+  await joinRoom(bobAgain, room, "Bob", self.session);
+  const [signal] = await delivered;
+  assert.equal(signal.from, a.self.id);
+  assert.equal(signal.candidate.candidate, "c1");
+});
+
 test("a wrong session just joins as someone new", async () => {
   const room = uniqueRoom();
   const alice = await app.client();

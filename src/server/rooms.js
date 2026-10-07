@@ -40,6 +40,8 @@ class RoomRegistry {
       socketId,
       connected: true,
       leaveTimer: null,
+      // Signals that arrive while the participant is reconnecting.
+      pending: [],
       audio: false,
       video: false,
       screen: false,

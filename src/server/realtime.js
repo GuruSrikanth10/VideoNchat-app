@@ -7,6 +7,9 @@ const { createLimiter } = require("./rate-limit");
 const { iceServersFor } = require("./ice");
 const schemas = require("./schemas");
 
+// Signals held for someone who is reconnecting (bounded).
+const MAX_PENDING_SIGNALS = 500;
+
 // Browsers always send Origin for WebSockets and cross-site requests; only
 // this app's own pages may connect. Clients without an Origin (tests,
 // command-line tools) can't ride on a visitor's browser, so they're allowed.
@@ -78,6 +81,10 @@ function attachRealtime({ io, rooms, config, logger }) {
         // Only people in a room get TURN credentials.
         iceServers: iceServersFor(config, { user: participant.id }),
       });
+
+      // Deliver the signals that arrived while this tab was reconnecting,
+      // so no negotiation is left half-finished.
+      for (const signal of participant.pending.splice(0)) socket.emit("rtc:signal", signal);
     });
 
     // Fresh credentials for connections made late in a long meeting.
@@ -146,8 +153,14 @@ function attachRealtime({ io, rooms, config, logger }) {
       if (!parsed.ok) return reply(parsed);
       const { to, ...signal } = parsed.value;
       const target = rooms.participant(socket.data.roomId, to);
-      if (!target || !target.connected) return reply({ ok: false, error: "unknown-peer" });
-      io.to(target.socketId).emit("rtc:signal", { from: participant.id, ...signal });
+      if (!target) return reply({ ok: false, error: "unknown-peer" });
+      const relayed = { from: participant.id, ...signal };
+      if (!target.connected) {
+        target.pending.push(relayed);
+        if (target.pending.length > MAX_PENDING_SIGNALS) target.pending.shift();
+        return reply({ ok: true, queued: true });
+      }
+      io.to(target.socketId).emit("rtc:signal", relayed);
       reply({ ok: true });
     });
 
