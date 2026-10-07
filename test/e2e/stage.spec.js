@@ -54,7 +54,9 @@ test("someone who leaves while pinned is unpinned", async ({ openUser, room }) =
   await joinMeeting(alice, room, "Alice");
   await joinMeeting(bob, room, "Bob");
   await alice.getByRole("button", { name: "Pin Bob" }).click();
-  await bob.close();
+  // Like closing the tab (without pagehide it would count as a dropped
+  // connection, and only end after the reconnect grace period).
+  await bob.close({ runBeforeUnload: true });
   await expect(tile(alice, "Bob")).toHaveCount(0);
   await expect(alice.locator("#tiles")).toHaveAttribute("data-layout", "grid");
 });

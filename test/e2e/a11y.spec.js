@@ -22,10 +22,11 @@ test("every control can be reached with the keyboard", async ({ openUser, room }
   await joinMeeting(page, room, "Keyboard Kim");
   await openChat(page);
 
-  // Start from the top of the page: Firefox doesn't wrap around at the end.
-  await page.evaluate(() => document.activeElement?.blur());
+  // Start from the top of the page: Firefox doesn't wrap around at the end,
+  // and blurring keeps its starting point wherever focus was.
+  await page.locator(".skip-link").focus();
   const reached = new Set();
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 25; i++) {
     await page.keyboard.press("Tab");
     reached.add(await page.evaluate(() => document.activeElement.id));
   }

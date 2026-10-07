@@ -21,8 +21,8 @@ test("the People panel lists everyone and what they share", async ({ openUser, r
   await alice.getByRole("button", { name: "Mute" }).click();
   await expect(rows.nth(0)).toContainText("muted");
 
-  await bob.close();
-  await expect(rows).toHaveCount(1, { timeout: 20_000 });
+  await bob.close({ runBeforeUnload: true });
+  await expect(rows).toHaveCount(1);
 });
 
 test("only one side panel is open at a time, and Escape closes it", async ({ openUser, room }) => {
