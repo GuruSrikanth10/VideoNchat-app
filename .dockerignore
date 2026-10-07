@@ -1,0 +1,13 @@
+# Only what the image needs (see the COPY lines in the Dockerfile).
+.git
+.github
+node_modules
+test
+test-results
+playwright-report
+coverage
+docs
+scripts
+*.md
+.env
+.env.*

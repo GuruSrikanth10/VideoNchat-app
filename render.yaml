@@ -1,0 +1,33 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# Create the service from this file in the Render dashboard (New > Blueprint),
+# then fill in the values marked "sync: false".
+services:
+  - type: web
+    name: videonchat
+    runtime: node
+    # The free plan sleeps when idle, so the first visitor waits for a cold
+    # start and calls drop on every sleep; use a paid plan for real meetings.
+    plan: starter
+    buildCommand: npm ci --omit=dev
+    startCommand: node app.js
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      # Render puts one proxy in front of the app.
+      - key: TRUST_PROXY
+        value: "1"
+      # e.g. https://videonchat.onrender.com, or your own domain.
+      - key: PUBLIC_URL
+        sync: false
+      # A TURN server, so calls work on strict networks (see .env.example).
+      - key: TURN_URLS
+        sync: false
+      - key: TURN_SECRET
+        sync: false
+      # Turns on /metrics for a scraper that sends this as a Bearer token.
+      - key: METRICS_TOKEN
+        generateValue: true

@@ -75,3 +75,19 @@ jobs:
         with:
           node-version: 22
       - run: npm audit --omit=dev --audit-level=high
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t videonchat .
+      - name: Run the image and check it serves the app, not as root
+        run: |
+          docker run -d --name app -p 3000:3000 videonchat
+          for i in $(seq 1 30); do curl -fsS localhost:3000/healthz && break; sleep 1; done
+          curl -fsS localhost:3000/ | grep -q "Video meetings in your browser"
+          curl -fsS localhost:3000/some-room | grep -q 'src="/js/room.js"'
+          test "$(docker exec app id -u)" != "0"
+      - if: failure()
+        run: docker logs app
