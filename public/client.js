@@ -271,53 +271,64 @@ For testing locally we can run a server on some port by using this command
   // debugging code
 
   socket.on("typing", function (data) {
-    console.log("is typing...");
-    feedback.innerHTML = "<p><em>" + data + " is typing a message...</em></p>";
+    feedback.textContent = data + " is typing a message...";
   });
 
   socket.on("stoppedTyping", () => {
     feedback.innerHTML = "";
   });
-  sendMessage.addEventListener("click", (e) => {
-    //If message is not empty  emit the message event;
-    if (text.value.length !== 0) {
-      console.log(`a message ${text.value} is sent`);
-      socket.emit("message", text.value);
-      text.value = ""; //Clear the textbox
-    }
-  });
+  function sendCurrentMessage() {
+    const message = text.value.trim();
+    if (message) socket.emit("message", message);
+    text.value = ""; //Clear the textbox
+  }
+
+  sendMessage.addEventListener("click", sendCurrentMessage);
 
   //Send the message if the user presses Enter
   text.addEventListener("keydown", (K) => {
-    if (K.key === "Enter" && text.value.length !== 0) {
-      console.log(`a message ${text.value} is sent`);
-      socket.emit("message", text.value);
-      text.value = "";
+    if (K.key === "Enter") {
+      sendCurrentMessage();
     } else if (text.value.length !== 0) {
       socket.emit("typing");
     } else if (text.value.length === 0) {
       socket.emit("stoppedTyping");
     }
   });
+  // Builds a chat entry from DOM nodes. Remote text is only ever assigned to
+  // textContent, so messages and names can never inject HTML or scripts.
+  function appendMessage(text, senderName, isMine) {
+    const item = document.createElement("div");
+    item.className = "message";
+
+    const profile = document.createElement("div");
+    profile.className = "profile";
+    const author = document.createElement("b");
+    const icon = document.createElement("i");
+    icon.className = "far fa-user-circle";
+    const name = document.createElement("span");
+    name.textContent = isMine ? "me" : senderName;
+    author.append(icon, " ", name);
+    const timeBox = document.createElement("div");
+    timeBox.className = "time";
+    const time = document.createElement("time");
+    time.textContent = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    timeBox.append(time);
+    profile.append(author, timeBox);
+
+    const body = document.createElement("span");
+    body.textContent = text;
+
+    item.append(profile, body);
+    messages.append(item);
+  }
+
   socket.on("createMessage", (message, userName) => {
-    feedback.innerHTML = "";
-    //For adding message
-    messages.innerHTML =
-      messages.innerHTML +
-      `<div class="message">
-        <div class = "profile" >
-          <b><i class="far fa-user-circle"></i> <span> ${
-            userName === user ? "me" : userName
-          }</span> </b>
-          <div class = "time">
-            <time> ${new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}</time>
-          </div>
-        </div>
-        <span>${message}</span>
-    </div>`;
+    feedback.textContent = "";
+    appendMessage(message, userName, userName === user);
 
     //For scrolling to bottom
     var chatWindow = document.querySelector(".main__chat_window");

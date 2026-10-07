@@ -50,8 +50,10 @@ io.on("connection", (socket) => {
     socket.broadcast.to(roomId).emit("user-connected", userId, userName);
 
     socket.on("message", (message) => {
-      console.log("Message received:", message);
-      io.to(roomId).emit("createMessage", message, userName);
+      // Only relay non-empty strings of a sane length.
+      if (typeof message !== "string") return;
+      const text = message.trim().slice(0, 1000);
+      if (text) io.to(roomId).emit("createMessage", text, userName);
     });
 
     socket.on("typing", () => {
