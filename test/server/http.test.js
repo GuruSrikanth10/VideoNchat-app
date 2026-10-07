@@ -10,12 +10,14 @@ after(() => app.close());
 
 const get = (pathname) => fetch(app.url + pathname, { redirect: "manual" });
 
-test("/ and /new redirect to a new UUID room", async () => {
-  for (const pathname of ["/", "/new"]) {
-    const res = await get(pathname);
-    assert.equal(res.status, 302);
-    assert.match(res.headers.get("location"), /^\/[0-9a-f-]{36}$/);
-  }
+test("/ is the landing page and /new starts a meeting", async () => {
+  const home = await get("/");
+  assert.equal(home.status, 200);
+  assert.match(await home.text(), /Video meetings in your browser/);
+
+  const res = await get("/new");
+  assert.equal(res.status, 302);
+  assert.match(res.headers.get("location"), /^\/[0-9a-f-]{36}$/);
 });
 
 test("valid room IDs get the meeting page, with or without a trailing slash", async () => {
@@ -35,7 +37,7 @@ test("anything that isn't a room ID is a 404", async () => {
 });
 
 test("pages only reference same-origin resources and have no inline scripts", async () => {
-  for (const pathname of ["/some-room", "/leave", "/does/not/exist"]) {
+  for (const pathname of ["/", "/some-room", "/leave", "/does/not/exist"]) {
     const html = await (await get(pathname)).text();
     const urls = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]);
     assert.deepEqual(

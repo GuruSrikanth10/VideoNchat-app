@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>VideoNChat · Video meetings in your browser</title>
+    <meta
+      name="description"
+      content="Free video meetings with chat and screen sharing, right in your browser. No downloads, no accounts."
+    />
+    <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <script type="module" src="/js/home.js"></script>
+  </head>
+  <body class="home-page theme-auto">
+    <header class="home-header">
+      <a class="brand" href="/">
+        <img class="brand__mark" src="/favicon.svg" alt="" width="32" height="32" />
+        <span class="brand__name">VideoNChat</span>
+      </a>
+    </header>
+
+    <main class="home">
+      <section class="hero" aria-labelledby="hero-title">
+        <h1 id="hero-title">Video meetings in your browser</h1>
+        <p class="hero__lead">
+          Talk face to face, chat and share your screen. No downloads, no accounts: just send the
+          link.
+        </p>
+
+        <div class="hero__actions">
+          <a class="btn btn--primary btn--large" href="/new">
+            <svg data-icon="video"></svg>
+            New meeting
+          </a>
+          <form id="join-form" class="join-form" novalidate>
+            <label for="join-code" class="visually-hidden">Meeting link or code</label>
+            <input
+              id="join-code"
+              name="code"
+              type="text"
+              placeholder="Enter a link or code"
+              autocomplete="off"
+              spellcheck="false"
+              aria-describedby="join-error"
+            />
+            <button class="btn btn--secondary btn--large" type="submit">Join</button>
+          </form>
+        </div>
+        <p id="join-error" class="form-error" role="alert"></p>
+      </section>
+
+      <section class="features" aria-label="Features">
+        <article class="feature">
+          <svg data-icon="users" class="icon feature__icon"></svg>
+          <h2>Up to six people</h2>
+          <p>Everyone sees and hears everyone else in a responsive grid.</p>
+        </article>
+        <article class="feature">
+          <svg data-icon="monitor-up" class="icon feature__icon"></svg>
+          <h2>Screen sharing</h2>
+          <p>Present a window, a tab or your whole screen while your camera stays on.</p>
+        </article>
+        <article class="feature">
+          <svg data-icon="message-square" class="icon feature__icon"></svg>
+          <h2>Chat on the side</h2>
+          <p>Send messages during the call. Late joiners see what they missed.</p>
+        </article>
+        <article class="feature">
+          <svg data-icon="lock" class="icon feature__icon"></svg>
+          <h2>Private by design</h2>
+          <p>
+            Audio and video go straight between participants. Chat isn't kept after the meeting
+            ends.
+          </p>
+        </article>
+      </section>
+    </main>
+
+    <footer class="home-footer">
+      <p>Works in current versions of Chrome, Edge, Firefox and Safari, on desktop and mobile.</p>
+    </footer>
+  </body>
+</html>

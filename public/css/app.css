@@ -36,6 +36,24 @@
   line-height: 1.5;
 }
 
+/* Pages outside the call follow the system theme; the call stays dark,
+   which suits video. */
+@media (prefers-color-scheme: light) {
+  .theme-auto {
+    color-scheme: light;
+
+    --bg: #f6f7f9;
+    --surface: #fff;
+    --surface-2: #eef0f4;
+    --surface-3: #e2e6ec;
+    --border: #d5dae2;
+    --text: #15181d;
+    --text-muted: #5b6370;
+    --focus: #2453cf;
+    --shadow: 0 10px 30px rgb(20 30 50 / 12%);
+  }
+}
+
 /* ---------------------------------------------------------------- base */
 
 *,
@@ -723,6 +741,122 @@ button:disabled {
 .toast--leaving {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+/* ------------------------------------------------------- landing page */
+
+.home-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.home-header {
+  padding: 20px clamp(16px, 5vw, 48px);
+}
+
+.home {
+  flex: 1;
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  padding: clamp(24px, 6vw, 72px) clamp(16px, 5vw, 48px);
+}
+
+.hero {
+  max-width: 44rem;
+}
+
+.hero h1 {
+  font-size: clamp(2.25rem, 6vw, 3.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.hero__lead {
+  margin-top: 20px;
+  color: var(--text-muted);
+  font-size: clamp(1.0625rem, 2vw, 1.25rem);
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 36px;
+}
+
+.btn--large {
+  min-height: 52px;
+  padding: 12px 24px;
+  font-size: 1.0625rem;
+}
+
+.join-form {
+  display: flex;
+  flex: 1 1 320px;
+  gap: 8px;
+  min-width: 0;
+  max-width: 420px;
+}
+
+.join-form input {
+  flex: 1;
+  width: 100%; /* otherwise its intrinsic width stops it shrinking */
+  min-width: 0;
+  min-height: 52px;
+  padding: 12px 18px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.join-form input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.form-error {
+  min-height: 1.5em;
+  margin-top: 12px;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: clamp(40px, 8vw, 96px);
+}
+
+.feature {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.feature__icon {
+  width: 28px;
+  height: 28px;
+  color: var(--accent-strong);
+}
+
+.feature h2 {
+  margin: 14px 0 6px;
+  font-size: 1.0625rem;
+}
+
+.feature p {
+  color: var(--text-muted);
+}
+
+.home-footer {
+  padding: 24px clamp(16px, 5vw, 48px);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-align: center;
 }
 
 /* ------------------------------------------------------- status pages */

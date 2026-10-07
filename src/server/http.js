@@ -86,9 +86,8 @@ function createHttpApp({ config, health }) {
 
 // Page routes go last so the static files and APIs above take precedence.
 function addPageRoutes(app, { logger }) {
-  const newRoom = (req, res) => res.redirect(`/${randomUUID()}`);
-  app.get("/", newRoom);
-  app.get("/new", newRoom);
+  app.get("/", (req, res) => res.sendFile(page("index.html"), staticOptions));
+  app.get("/new", (req, res) => res.redirect(`/${randomUUID()}`));
 
   app.get("/leave", (req, res) => res.sendFile(page("leave.html"), staticOptions));
 
