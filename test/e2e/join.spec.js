@@ -7,6 +7,7 @@ const {
   tile,
   expectTiles,
   openPage,
+  reloadPage,
 } = require("./support");
 
 test("the lobby shows a preview and asks for a name @smoke", async ({ openUser, room }) => {
@@ -39,7 +40,7 @@ test("the lobby says how many people are already in the meeting", async ({ openU
 test("your name is remembered for next time", async ({ openUser, room }) => {
   const page = await openUser();
   await joinMeeting(page, room, "Remembered Ruth");
-  await page.reload();
+  await reloadPage(page);
   await expect(nameField(page)).toHaveValue("Remembered Ruth");
   await expect(page.getByRole("button", { name: "Join now" })).toBeFocused();
 });

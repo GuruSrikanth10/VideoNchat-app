@@ -55,6 +55,14 @@ async function openPage(page, url) {
   return response;
 }
 
+// The same, for reloading the page.
+async function reloadPage(page) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('link[rel="stylesheet"]')].every((link) => link.sheet),
+  );
+}
+
 // Opens the meeting's lobby, optionally changes devices there, and joins.
 async function joinMeeting(page, room, name, { beforeJoin } = {}) {
   await openPage(page, `/${room}`);
@@ -130,6 +138,7 @@ module.exports = {
   test,
   expect,
   openPage,
+  reloadPage,
   joinMeeting,
   nameField,
   expectTiles,

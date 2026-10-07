@@ -1,4 +1,4 @@
-const { test, expect, joinMeeting } = require("./support");
+const { test, expect, joinMeeting, reloadPage } = require("./support");
 
 async function openSettings(page) {
   await page.getByRole("button", { name: "Settings" }).click();
@@ -18,7 +18,7 @@ test("noise suppression can be turned off, and stays off next time", async ({ op
   await settings.getByRole("switch", { name: "Noise suppression" }).uncheck();
   if (applies) await expect.poll(noise).toBe(false);
 
-  await page.reload();
+  await reloadPage(page);
   await joinMeeting(page, room, "Ada");
   if (applies) await expect.poll(noise).toBe(false);
   await openSettings(page);

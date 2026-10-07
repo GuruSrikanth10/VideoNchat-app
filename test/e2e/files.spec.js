@@ -49,7 +49,7 @@ test("a file shared in chat reaches everyone, straight from the sender", async (
     const tab = await page.context().newPage();
     const opened = tab.waitForEvent("download");
     await tab.goto(href).catch(() => {}); // "download is starting"
-    expect((await opened).suggestedFilename()).toBeTruthy();
+    expect((await opened).url()).toBe(href); // (Firefox gives it no name)
     await tab.close();
   }
   await expect(alice.locator(".message__file")).toContainText("Sent");
