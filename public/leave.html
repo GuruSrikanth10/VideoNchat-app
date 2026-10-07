@@ -3,17 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Something went wrong · VideoNChat</title>
+    <title>You left the meeting · VideoNChat</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/css/app.css" />
+    <script type="module" src="/js/leave.js"></script>
   </head>
   <body class="status-page">
     <main class="status-card">
       <img class="status-card__mark" src="/favicon.svg" alt="" width="56" height="56" />
-      <h1>Something went wrong</h1>
-      <p>The server couldn't handle that request. Please try again in a moment.</p>
+      <h1>You left the meeting</h1>
+      <p>Thanks for joining. Have a nice day!</p>
       <div class="status-card__actions">
-        <a class="btn btn--primary" href="/new">Start a new meeting</a>
+        <a id="rejoin" class="btn btn--primary" href="/" hidden>Rejoin</a>
+        <a class="btn btn--secondary" href="/new">Start a new meeting</a>
       </div>
     </main>
   </body>

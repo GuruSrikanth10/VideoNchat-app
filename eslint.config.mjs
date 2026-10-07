@@ -19,18 +19,9 @@ export default [
     languageOptions: { ecmaVersion: 2024, sourceType: "module", globals: { ...globals.node } },
   },
   {
-    // Browser code: remote data must never reach innerHTML and friends.
+    // Browser code (ES modules): remote data must never reach innerHTML.
     files: ["public/**/*.js"],
-    languageOptions: {
-      sourceType: "script",
-      globals: {
-        ...globals.browser,
-        io: "readonly",
-        Peer: "readonly",
-        Swal: "readonly",
-        ROOM_ID: "readonly",
-      },
-    },
+    languageOptions: { sourceType: "module", globals: { ...globals.browser } },
     plugins: { "no-unsanitized": noUnsanitized },
     rules: {
       "no-unsanitized/method": "error",

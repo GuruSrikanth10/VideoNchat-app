@@ -8,9 +8,10 @@
     "dev": "node --watch app.js",
     "lint": "eslint . && stylelint \"public/**/*.css\" && prettier --check .",
     "format": "prettier --write . && stylelint --fix \"public/**/*.css\"",
-    "test": "node --test --test-force-exit --test-timeout=10000 \"test/server/**/*.test.js\"",
-    "test:coverage": "node --test --test-force-exit --test-timeout=10000 --experimental-test-coverage --test-coverage-include=\"app.js\" --test-coverage-include=\"src/server/**\" --test-coverage-lines=80 \"test/server/**/*.test.js\"",
-    "test:e2e": "playwright test"
+    "test": "node --test --test-force-exit --test-timeout=10000 \"test/server/**/*.test.js\" \"test/client/**/*.test.mjs\"",
+    "test:coverage": "node --test --test-force-exit --test-timeout=10000 --experimental-test-coverage --test-coverage-include=\"app.js\" --test-coverage-include=\"src/server/**\" --test-coverage-lines=80 \"test/server/**/*.test.js\" \"test/client/**/*.test.mjs\"",
+    "test:e2e": "playwright test",
+    "icons": "node scripts/build-icons.mjs"
   },
   "author": "Guru SriKanth",
   "license": "ISC",
@@ -19,15 +20,10 @@
   },
   "dependencies": {
     "compression": "^1.8.2",
-    "ejs": "^3.1.10",
     "express": "^4.22.3",
     "helmet": "^8.3.0",
-    "peer": "^1.0.2",
-    "peerjs": "1.5.5",
     "pino": "^10.4.0",
-    "socket.io": "^4.8.4",
-    "sweetalert2": "11.26.25",
-    "ws": "^8.22.0"
+    "socket.io": "^4.8.4"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
@@ -37,6 +33,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-no-unsanitized": "^4.1.5",
     "globals": "^17.13.0",
+    "lucide-static": "^1.52.0",
     "prettier": "^3.9.9",
     "socket.io-client": "^4.8.4",
     "stylelint": "^17.16.0",

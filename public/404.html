@@ -4,13 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Page not found · VideoNChat</title>
-    <link rel="stylesheet" href="/style.css" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/css/app.css" />
   </head>
   <body class="status-page">
-    <main>
+    <main class="status-card">
+      <img class="status-card__mark" src="/favicon.svg" alt="" width="56" height="56" />
       <h1>Page not found</h1>
       <p>This link doesn't lead to a meeting. Check it, or start a new meeting.</p>
-      <p><a href="/">Start a new meeting</a></p>
+      <div class="status-card__actions">
+        <a class="btn btn--primary" href="/new">Start a new meeting</a>
+      </div>
     </main>
   </body>
 </html>

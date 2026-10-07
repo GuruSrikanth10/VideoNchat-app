@@ -1,36 +1,42 @@
 const AxeBuilder = require("@axe-core/playwright").default;
-const { test, expect, joinMeeting, waitForPopups } = require("./support");
+const { test, expect, joinMeeting, openChat } = require("./support");
 
-test("the room page has no axe-core violations", async ({ openUser, room }) => {
+test("the meeting page has no axe-core violations", async ({ openUser, room }) => {
   const page = await openUser();
   await joinMeeting(page, room, "Ada");
-  await waitForPopups(page);
+  await openChat(page);
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
+});
+
+test("the name prompt and leave page have no axe-core violations", async ({ openUser, room }) => {
+  const page = await openUser();
+  await page.goto(`/${room}`);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.goto(`/leave?room=${room}`);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 
 test("every control can be reached with the keyboard", async ({ openUser, room }) => {
   const page = await openUser();
   await joinMeeting(page, room, "Keyboard Kim");
-  await waitForPopups(page);
+  await openChat(page);
 
   const reached = new Set();
-  for (let i = 0; i < 15; i++) {
+  for (let i = 0; i < 20; i++) {
     await page.keyboard.press("Tab");
     reached.add(await page.evaluate(() => document.activeElement.id));
   }
-  for (const id of ["leave-meet", "stopVideo", "muteButton", "shareScreen", "inviteButton"]) {
+  for (const id of ["mic", "camera", "chat-toggle", "invite", "leave", "chat-input"]) {
     expect(reached, id).toContain(id);
   }
-  for (const id of ["chat_message", "send"]) expect(reached, id).toContain(id);
 });
 
-test("toggles expose their state to assistive technology", async ({ openUser, room }) => {
+test("control labels say what pressing them will do", async ({ openUser, room }) => {
   const page = await openUser();
   await joinMeeting(page, room, "Ada");
-  await waitForPopups(page);
-  const mute = page.locator("#muteButton");
-  await expect(mute).toHaveAttribute("aria-pressed", "false");
-  await mute.click();
-  await expect(mute).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Mute" }).click();
+  await expect(page.getByRole("button", { name: "Unmute" })).toBeVisible();
+  await page.getByRole("button", { name: "Stop video" }).click();
+  await expect(page.getByRole("button", { name: "Start video" })).toBeVisible();
 });

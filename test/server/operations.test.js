@@ -32,7 +32,7 @@ test("security headers are sent", async () => {
 });
 
 test("text assets are compressed and revalidated", async () => {
-  const res = await fetch(`${app.url}/client.js`, { headers: { "Accept-Encoding": "gzip" } });
+  const res = await fetch(`${app.url}/js/room.js`, { headers: { "Accept-Encoding": "gzip" } });
   assert.equal(res.headers.get("content-encoding"), "gzip");
   assert.equal(res.headers.get("cache-control"), "no-cache");
   assert.ok(res.headers.get("etag"));

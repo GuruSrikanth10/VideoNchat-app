@@ -4,8 +4,6 @@ const { Server } = require("socket.io");
 const { loadConfig } = require("./config");
 const { createLogger } = require("./logger");
 const { createHttpApp, addPageRoutes } = require("./http");
-const { mountPeerServer } = require("./peerjs");
-const { attachLegacyProtocol } = require("./legacy-socket");
 const { RoomRegistry } = require("./rooms");
 const { attachRealtime, isAllowedOrigin } = require("./realtime");
 
@@ -35,8 +33,6 @@ function createServer({ config = loadConfig(), logger = createLogger(config) } =
     });
   });
 
-  mountPeerServer(app, server);
-  attachLegacyProtocol(io);
   attachRealtime({ io, rooms, config, logger });
   addPageRoutes(app, { logger });
 

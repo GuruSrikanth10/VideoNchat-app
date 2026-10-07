@@ -4,14 +4,12 @@ const base = require("@playwright/test");
 
 const { expect } = base;
 
-// Third-party hosts are blocked so the tests never depend on the network.
-const THIRD_PARTY = /(kit\.fontawesome\.com|fonts\.googleapis\.com|fonts\.gstatic\.com|giphy\.com)/;
-
 let roomCounter = 0;
 
 const test = base.test.extend({
   // Opens another participant: a separate browser context (own storage,
-  // own devices) with third-party requests blocked and errors recorded.
+  // own devices). Page errors, console errors and CSP violations are
+  // recorded in page.errors.
   openUser: async ({ browser, browserName }, use) => {
     const contexts = [];
     await use(async ({ initScript } = {}) => {
@@ -19,11 +17,20 @@ const test = base.test.extend({
         browserName === "chromium" ? { permissions: ["camera", "microphone"] } : {},
       );
       contexts.push(context);
-      await context.route(THIRD_PARTY, (route) => route.abort());
+      // Nothing may be loaded from other origins.
+      await context.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => route.abort());
       if (initScript) await context.addInitScript(initScript);
+      await context.addInitScript(() => {
+        document.addEventListener("securitypolicyviolation", (event) => {
+          console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`);
+        });
+      });
       const page = await context.newPage();
       page.errors = [];
       page.on("pageerror", (err) => page.errors.push(err.message));
+      page.on("console", (message) => {
+        if (message.type() === "error") page.errors.push(message.text());
+      });
       return page;
     });
     for (const context of contexts) await context.close();
@@ -34,29 +41,29 @@ const test = base.test.extend({
   },
 });
 
+const nameField = (page) => page.getByRole("textbox", { name: "Your name" });
+
 async function joinMeeting(page, room, name) {
   await page.goto(`/${room}`);
-  const input = page.locator(".swal2-input");
-  await input.fill(name);
-  await page.locator(".swal2-confirm").click();
-  await expect(input).toBeHidden();
+  await nameField(page).fill(name);
+  await page.getByRole("button", { name: "Join meeting" }).click();
+  await expect(nameField(page)).toBeHidden();
+  await expect(page.locator("#participant-count")).not.toHaveText("Joining…");
 }
 
-// Waits until all modal pop-ups (join notices etc.) have closed.
-async function waitForPopups(page) {
-  await expect(page.locator(".swal2-container")).toHaveCount(0);
-}
-
-// Video tiles that are showing a live stream with real frames.
+// Tiles of people (not screens) that show live video with real frames.
 function liveTiles(page) {
   return page.evaluate(
     () =>
-      [...document.querySelectorAll("#video-grid video")].filter(
-        (v) =>
-          v.srcObject &&
-          v.videoWidth > 0 &&
-          v.srcObject.getTracks().every((t) => t.readyState === "live"),
-      ).length,
+      [...document.querySelectorAll("#tiles .tile:not(.tile--screen)")].filter((tile) => {
+        const video = tile.querySelector("video");
+        const tracks = video.srcObject?.getVideoTracks() ?? [];
+        return (
+          video.videoWidth > 0 &&
+          tracks.some((t) => t.readyState === "live") &&
+          tile.dataset.videoOff !== "true"
+        );
+      }).length,
   );
 }
 
@@ -64,13 +71,27 @@ async function expectTiles(page, count) {
   await expect.poll(() => liveTiles(page), { timeout: 20_000 }).toBe(count);
 }
 
-async function sendChat(page, text) {
-  await page.locator("#chat_message").fill(text);
-  await page.locator("#send").click();
+const tile = (page, name) => page.locator("#tiles .tile").filter({ hasText: name });
+
+async function openChat(page) {
+  if (!(await page.locator("#chat").isVisible())) await page.locator("#chat-toggle").click();
+  await expect(page.locator("#chat-input")).toBeVisible();
 }
 
-const chatMessages = (page) => page.locator(".messages .message > span");
-const chatAuthors = (page) => page.locator(".messages .profile span");
+async function sendChat(page, text) {
+  await openChat(page);
+  await page.locator("#chat-input").fill(text);
+  await page.locator("#chat-input").press("Enter");
+}
+
+async function leaveMeeting(page) {
+  await page.getByRole("button", { name: "Leave", exact: true }).first().click();
+  await page.getByRole("dialog").getByRole("button", { name: "Leave" }).click();
+  await expect(page).toHaveURL(/\/leave\?room=/);
+}
+
+const chatMessages = (page) => page.locator("#messages .message__text");
+const chatAuthors = (page) => page.locator("#messages .message__author");
 
 // Simulates a person who takes `ms` to answer the camera permission prompt.
 const slowPermission = (ms) => `(() => {
@@ -87,9 +108,12 @@ module.exports = {
   test,
   expect,
   joinMeeting,
-  waitForPopups,
+  nameField,
   expectTiles,
+  tile,
+  openChat,
   sendChat,
+  leaveMeeting,
   chatMessages,
   chatAuthors,
   slowPermission,
