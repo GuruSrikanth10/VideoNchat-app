@@ -27,9 +27,21 @@ function isAllowedOrigin(req, config) {
 
 function attachRealtime({ io, rooms, config, logger }) {
   const leaveRoom = (roomId, participantId) => {
-    const participant = rooms.leave(roomId, participantId);
-    if (participant) io.to(roomId).emit("participant:left", { id: participantId });
+    const left = rooms.leave(roomId, participantId);
+    if (!left) return;
+    io.to(roomId).emit("participant:left", { id: participantId });
+    if (left.newHost) io.to(roomId).emit("participant:updated", publicView(left.newHost));
   };
+
+  // Host-only events go straight to the hosts' sockets.
+  const toHosts = (roomId, event, payload) => {
+    for (const participant of rooms.get(roomId)?.participants.values() ?? []) {
+      if (participant.host && participant.connected) {
+        io.to(participant.socketId).emit(event, payload);
+      }
+    }
+  };
+  const knockView = ({ id, name }) => ({ id, name });
 
   io.on("connection", (socket) => {
     const limiter = createLimiter();
@@ -52,17 +64,35 @@ function attachRealtime({ io, rooms, config, logger }) {
       });
     };
 
+    // A host action aimed at another participant in the same room.
+    const hostAction = (event, handler) => {
+      handle(event, (payload, reply) => {
+        const host = current();
+        if (!host) return reply({ ok: false, error: "not-joined" });
+        if (!host.host) return reply({ ok: false, error: "not-host" });
+        const parsed = schemas.parseTarget(payload);
+        if (!parsed.ok) return reply(parsed);
+        const target = rooms.participant(socket.data.roomId, parsed.value.id);
+        if (!target || target === host) return reply({ ok: false, error: "unknown-participant" });
+        handler({ host, target, roomId: socket.data.roomId }, reply);
+      });
+    };
+
     handle("room:join", (payload, reply) => {
       if (socket.data.participantId) return reply({ ok: false, error: "already-joined" });
       const parsed = schemas.parseJoin(payload);
       if (!parsed.ok) return reply(parsed);
-      const { roomId, name, session } = parsed.value;
+      const { roomId, name, session, ticket } = parsed.value;
 
-      // A reconnecting tab resumes its participant silently.
+      // A reconnecting tab resumes its participant silently (even if the
+      // room was locked in the meantime).
       let result = session ? rooms.resume(roomId, session, socket.id) : undefined;
       const resumed = Boolean(result);
-      if (!result) result = rooms.join(roomId, { name, socketId: socket.id });
+      if (!result) result = rooms.join(roomId, { name, socketId: socket.id, ticket });
       if (result.error) return reply({ ok: false, error: result.error });
+      for (const { roomId: knocked, knock } of rooms.cancelKnocks(socket.id)) {
+        toHosts(knocked, "knock:resolved", { id: knock.id, admitted: knocked === roomId });
+      }
 
       const { room, participant } = result;
       socket.data = { roomId, participantId: participant.id };
@@ -79,6 +109,9 @@ function attachRealtime({ io, rooms, config, logger }) {
           .map(publicView),
         history: room.history,
         maxRoomSize: rooms.maxRoomSize,
+        locked: room.locked,
+        // A host who reconnects sees who is still waiting to come in.
+        knocks: participant.host ? [...room.knocks.values()].map(knockView) : [],
         // Only people in a room get TURN credentials.
         iceServers: iceServersFor(config, { user: participant.id }),
       });
@@ -100,8 +133,101 @@ function attachRealtime({ io, rooms, config, logger }) {
     handle("room:peek", (payload, reply) => {
       const roomId = payload?.roomId;
       if (!isToken(roomId)) return reply({ ok: false, error: "invalid-room" });
-      const count = rooms.get(roomId)?.participants.size ?? 0;
-      reply({ ok: true, count, full: count >= rooms.maxRoomSize, maxRoomSize: rooms.maxRoomSize });
+      const room = rooms.get(roomId);
+      const count = room?.participants.size ?? 0;
+      reply({
+        ok: true,
+        count,
+        full: count >= rooms.maxRoomSize,
+        locked: room?.locked ?? false,
+        maxRoomSize: rooms.maxRoomSize,
+      });
+    });
+
+    // Asks the hosts of a locked room to be let in. The answer comes as
+    // knock:answered; a ticket in it gets you past the lock once.
+    handle("room:knock", (payload, reply) => {
+      if (socket.data.participantId) return reply({ ok: false, error: "already-joined" });
+      const parsed = schemas.parseKnock(payload);
+      if (!parsed.ok) return reply(parsed);
+      const { roomId, name } = parsed.value;
+      // One knock per tab at a time.
+      for (const { roomId: knocked, knock } of rooms.cancelKnocks(socket.id)) {
+        toHosts(knocked, "knock:resolved", { id: knock.id, admitted: false });
+      }
+      const result = rooms.knock(roomId, { name, socketId: socket.id });
+      if (result.error) return reply({ ok: false, error: result.error });
+      toHosts(roomId, "knock:request", knockView(result.knock));
+      reply({ ok: true, id: result.knock.id });
+    });
+
+    handle("knock:answer", (payload, reply) => {
+      const host = current();
+      if (!host) return reply({ ok: false, error: "not-joined" });
+      if (!host.host) return reply({ ok: false, error: "not-host" });
+      const parsed = schemas.parseKnockAnswer(payload);
+      if (!parsed.ok) return reply(parsed);
+      const { roomId } = socket.data;
+      const answered = rooms.answerKnock(roomId, parsed.value.id, parsed.value.admit);
+      if (!answered) return reply({ ok: false, error: "unknown-knock" });
+      const { knock, ticket } = answered;
+      io.to(knock.socketId).emit("knock:answered", { admitted: Boolean(ticket), ticket });
+      toHosts(roomId, "knock:resolved", { id: knock.id, admitted: Boolean(ticket) });
+      reply({ ok: true });
+    });
+
+    // Locked rooms only let in people a host lets in. Unlocking lets in
+    // everyone who was waiting.
+    handle("room:lock", (payload, reply) => {
+      const host = current();
+      if (!host) return reply({ ok: false, error: "not-joined" });
+      if (!host.host) return reply({ ok: false, error: "not-host" });
+      const parsed = schemas.parseLock(payload);
+      if (!parsed.ok) return reply(parsed);
+      const { roomId } = socket.data;
+      const room = rooms.get(roomId);
+      room.locked = parsed.value.locked;
+      if (!room.locked) {
+        for (const knock of room.knocks.values()) {
+          io.to(knock.socketId).emit("knock:answered", { admitted: true, ticket: null });
+          toHosts(roomId, "knock:resolved", { id: knock.id, admitted: true });
+        }
+        room.knocks.clear();
+      }
+      io.to(roomId).emit("room:updated", { locked: room.locked });
+      reply({ ok: true });
+    });
+
+    // Turns someone's microphone off. (Their app does it; only they can
+    // turn it back on.)
+    hostAction("host:mute", ({ host, target }, reply) => {
+      io.to(target.socketId).emit("host:mute", { by: host.name });
+      reply({ ok: true });
+    });
+
+    // Asks someone to unmute: they decide.
+    hostAction("host:ask-unmute", ({ host, target }, reply) => {
+      io.to(target.socketId).emit("host:ask-unmute", { by: host.name });
+      reply({ ok: true });
+    });
+
+    hostAction("host:lower-hand", ({ target, roomId }, reply) => {
+      target.hand = null;
+      io.to(roomId).emit("participant:updated", publicView(target));
+      reply({ ok: true });
+    });
+
+    // Removes someone from the meeting. They can come back with the link
+    // unless the room is locked.
+    hostAction("host:remove", ({ host, target, roomId }, reply) => {
+      const removed = io.sockets.sockets.get(target.socketId);
+      if (removed) {
+        removed.emit("room:removed", { by: host.name });
+        removed.leave(roomId);
+        removed.data = {};
+      }
+      leaveRoom(roomId, target.id);
+      reply({ ok: true });
     });
 
     handle("room:leave", (payload, reply) => {
@@ -199,6 +325,9 @@ function attachRealtime({ io, rooms, config, logger }) {
     });
 
     socket.on("disconnect", (reason) => {
+      for (const { roomId, knock } of rooms.cancelKnocks(socket.id)) {
+        toHosts(roomId, "knock:resolved", { id: knock.id, admitted: false });
+      }
       const participant = current();
       if (!participant || participant.socketId !== socket.id) return;
       const { roomId } = socket.data;

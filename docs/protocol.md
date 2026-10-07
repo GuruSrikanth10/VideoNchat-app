@@ -23,10 +23,10 @@ never sees them.
 
 | Event | Direction | Payload | Reply / notes |
 | --- | --- | --- | --- |
-| `room:join` | client → server | `{ roomId, name, session? }` | `{ ok, resumed, self, participants, history, maxRoomSize, iceServers }` |
+| `room:join` | client → server | `{ roomId, name, session?, ticket? }` | `{ ok, resumed, self, participants, history, maxRoomSize, locked, knocks, iceServers }` |
 | `room:leave` | client → server | – | `{ ok }`; others get `participant:left` at once |
-| `participant:joined` | server → client | `{ id, name, audio, video, screen, hand }` | sent to everyone else in the room |
-| `participant:updated` | server → client | `{ id, name, audio, video, screen, hand }` | after `media:state` or `hand:set` |
+| `participant:joined` | server → client | `{ id, name, audio, video, screen, hand, host }` | sent to everyone else in the room |
+| `participant:updated` | server → client | `{ id, name, audio, video, screen, hand, host }` | after `media:state` or `hand:set`; to everyone, the person included, after `host:lower-hand` or a host change |
 | `participant:left` | server → client | `{ id }` | after `room:leave`, or a disconnect that outlasts the grace period |
 | `server:restarting` | server → client | `{ inSeconds }` | on `SIGTERM`; clients show "reconnecting" and rejoin on their own |
 
@@ -35,8 +35,8 @@ never sees them.
 - `self` holds the new participant's `id`, `name` and a private `session`
   token. Clients keep the token in `sessionStorage`.
 - Errors: `invalid-payload`, `invalid-room`, `invalid-name`,
-  `invalid-session`, `already-joined`, `room-full` (more than
-  `MAX_ROOM_SIZE` people).
+  `invalid-session`, `invalid-ticket`, `already-joined`, `room-full` (more
+  than `MAX_ROOM_SIZE` people), `room-locked` (see below).
 
 ### Reconnecting
 
@@ -69,6 +69,37 @@ The last 50 messages of a room are kept in memory and sent to newcomers in
 | Event | Direction | Payload | Reply / notes |
 | --- | --- | --- | --- |
 | `media:state` | client → server | any of `{ audio, video, screen }` (booleans) | `{ ok }`; relayed as `participant:updated` |
+
+## Hosts and locked rooms
+
+The first person in a room is its host. When the host leaves, whoever has
+been in the room longest becomes host, and everyone gets a
+`participant:updated` saying so. Every host-only event replies `not-host`
+to anyone else.
+
+| Event | Direction | Payload | Reply / notes |
+| --- | --- | --- | --- |
+| `room:lock` | host → server | `{ locked }` | `{ ok }`; everyone gets `room:updated { locked }`. Unlocking lets in everyone waiting |
+| `room:knock` | client → server | `{ roomId, name }` | `{ ok, id }`, before joining; hosts get `knock:request { id, name }`. Errors: `not-locked`, `too-many-knocks` (20 waiting) |
+| `knock:answer` | host → server | `{ id, admit }` | `{ ok }`; the person waiting gets `knock:answered { admitted, ticket }`, and hosts get `knock:resolved { id, admitted }` |
+| `host:mute` | host → server | `{ id }` | the person gets `host:mute { by }`, and their app turns the mic off |
+| `host:ask-unmute` | host → server | `{ id }` | the person gets `host:ask-unmute { by }` and decides for themselves |
+| `host:lower-hand` | host → server | `{ id }` | `participant:updated` with `hand: null` |
+| `host:remove` | host → server | `{ id }` | the person gets `room:removed { by }` and is out of the room; the others get `participant:left` |
+
+- A locked room answers `room:join` with `room-locked`. The person can
+  then knock. If a host lets them in, `ticket` gets them past the lock
+  once, within a minute. Reconnecting with a `session` is never blocked
+  by the lock.
+- Hosts who reconnect get the people still waiting in the join reply's
+  `knocks`. Hosts are also told (`knock:resolved`) when someone stops
+  waiting.
+- Someone who was removed can come back with the link unless the room is
+  locked.
+- Rooms only live in the server's memory, so a restart unlocks them. The
+  first person back becomes host and can lock the room again. Keeping
+  locks across restarts needs shared storage (see the plan's Phase 5).
+- `room:knock` is limited to 3 in a burst, then one every 10 seconds.
 
 ## Raised hands and reactions
 

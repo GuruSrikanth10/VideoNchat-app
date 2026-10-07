@@ -4,6 +4,8 @@
 const RATE_LIMITS = {
   "room:join": { capacity: 5, perSecond: 0.2 },
   "room:leave": { capacity: 5, perSecond: 1 },
+  // Knocking on a locked room; each knock interrupts the host.
+  "room:knock": { capacity: 3, perSecond: 0.1 },
   "chat:send": { capacity: 10, perSecond: 1 },
   "chat:typing": { capacity: 10, perSecond: 2 },
   "media:state": { capacity: 20, perSecond: 5 },

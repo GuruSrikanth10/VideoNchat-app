@@ -75,7 +75,15 @@ test("media state is shared with others and with late joiners", async () => {
   const updated = nextEvent(bob, "participant:updated");
   assert.equal((await ack(alice, "media:state", { audio: true, video: false })).ok, true);
   assert.deepEqual(await updated, [
-    { id: self.id, name: "Alice", audio: true, video: false, screen: false, hand: null },
+    {
+      id: self.id,
+      name: "Alice",
+      audio: true,
+      video: false,
+      screen: false,
+      hand: null,
+      host: true,
+    },
   ]);
   assert.equal((await ack(alice, "media:state", { video: "on" })).error, "invalid-payload");
   assert.equal((await ack(alice, "media:state", {})).error, "invalid-payload");

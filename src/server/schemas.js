@@ -15,15 +15,48 @@ const MAX_SDP = 32 * 1024;
 // The reactions anyone can send; nothing else is relayed.
 const REACTIONS = ["👍", "❤️", "😂", "😮", "👏", "🎉"];
 
+const isSecret = (value) => typeof value === "string" && /^[\w-]{1,64}$/.test(value);
+
+const parseName = (name) =>
+  typeof name === "string" && name.trim() ? name.trim().slice(0, MAX_NAME) : null;
+
+// `ticket` is what a host's "let in" gave someone waiting outside a
+// locked room.
 function parseJoin(payload) {
   if (!isObject(payload)) return fail("invalid-payload");
-  const { roomId, name, session } = payload;
+  const { roomId, session, ticket } = payload;
   if (!isToken(roomId)) return fail("invalid-room");
-  if (typeof name !== "string" || !name.trim()) return fail("invalid-name");
-  if (session !== undefined && !(typeof session === "string" && /^[\w-]{1,64}$/.test(session))) {
-    return fail("invalid-session");
+  const name = parseName(payload.name);
+  if (!name) return fail("invalid-name");
+  if (session !== undefined && !isSecret(session)) return fail("invalid-session");
+  if (ticket !== undefined && !isSecret(ticket)) return fail("invalid-ticket");
+  return ok({ roomId, name, session, ticket });
+}
+
+function parseKnock(payload) {
+  if (!isObject(payload)) return fail("invalid-payload");
+  if (!isToken(payload.roomId)) return fail("invalid-room");
+  const name = parseName(payload.name);
+  if (!name) return fail("invalid-name");
+  return ok({ roomId: payload.roomId, name });
+}
+
+function parseKnockAnswer(payload) {
+  if (!isObject(payload) || !isToken(payload.id) || typeof payload.admit !== "boolean") {
+    return fail("invalid-payload");
   }
-  return ok({ roomId, name: name.trim().slice(0, MAX_NAME), session });
+  return ok({ id: payload.id, admit: payload.admit });
+}
+
+function parseLock(payload) {
+  if (!isObject(payload) || typeof payload.locked !== "boolean") return fail("invalid-payload");
+  return ok({ locked: payload.locked });
+}
+
+// A host action aimed at one participant: { id }.
+function parseTarget(payload) {
+  if (!isObject(payload) || !isToken(payload.id)) return fail("invalid-payload");
+  return ok({ id: payload.id });
 }
 
 function parseChat(payload) {
@@ -100,6 +133,10 @@ function parseSignal(payload) {
 
 module.exports = {
   parseJoin,
+  parseKnock,
+  parseKnockAnswer,
+  parseLock,
+  parseTarget,
   parseChat,
   parseTyping,
   parseMediaState,
