@@ -2,7 +2,9 @@
 import { hydrateIcons } from "./ui/icons.js";
 import { parseMeetingCode } from "./lib/meeting-code.js";
 import { strings } from "./strings.js";
+import { reportErrors } from "./lib/telemetry.js";
 
+reportErrors();
 hydrateIcons();
 
 const form = document.getElementById("join-form");

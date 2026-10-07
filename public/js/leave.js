@@ -3,6 +3,9 @@ import { isMeetingCode } from "./lib/meeting-code.js";
 import { formatDuration } from "./lib/duration.js";
 import { session } from "./lib/storage.js";
 import { strings } from "./strings.js";
+import { reportErrors } from "./lib/telemetry.js";
+
+reportErrors();
 
 const LAST_CALL_KEY = "videonchat:last-call";
 

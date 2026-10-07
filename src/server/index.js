@@ -6,6 +6,7 @@ const { createLogger } = require("./logger");
 const { createHttpApp, addPageRoutes } = require("./http");
 const { RoomRegistry } = require("./rooms");
 const { attachRealtime, isAllowedOrigin } = require("./realtime");
+const { createMetrics } = require("./metrics");
 
 // Builds the app without listening, so tests can start it on any port.
 function createServer({ config = loadConfig(), logger = createLogger(config) } = {}) {
@@ -16,7 +17,8 @@ function createServer({ config = loadConfig(), logger = createLogger(config) } =
     connections: io?.engine.clientsCount ?? 0,
     ...rooms.stats(),
   });
-  const app = createHttpApp({ config, logger, health });
+  const metrics = createMetrics({ gauges: health });
+  const app = createHttpApp({ config, logger, health, metrics });
   const server = http.createServer(app);
 
   // The page is served from this same origin, so no CORS setup is needed.
@@ -33,10 +35,10 @@ function createServer({ config = loadConfig(), logger = createLogger(config) } =
     });
   });
 
-  attachRealtime({ io, rooms, config, logger });
+  attachRealtime({ io, rooms, config, logger, metrics });
   addPageRoutes(app, { config, logger });
 
-  return { app, server, io, rooms, config, logger };
+  return { app, server, io, rooms, config, logger, metrics };
 }
 
 function start() {

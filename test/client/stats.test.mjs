@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { summarize, rate, describe } from "../../public/js/lib/stats.js";
+import { summarize, rate, describe, usesRelay } from "../../public/js/lib/stats.js";
 import { videoLimitsFor, SLOTS } from "../../public/js/lib/rtc.js";
 
 const report = (stats) => new Map(stats.map((s, i) => [String(i), s]));
@@ -71,4 +71,25 @@ test("video bitrate goes down as the room grows", () => {
 
 test("every connection uses the same transceiver layout", () => {
   assert.deepEqual(SLOTS, ["mic", "camera", "screen"]);
+});
+
+test("usesRelay finds the chosen connection's local candidate type", () => {
+  const stats = (type, viaTransport = true) =>
+    new Map(
+      [
+        { id: "T", type: "transport", selectedCandidatePairId: viaTransport ? "P" : undefined },
+        {
+          id: "P",
+          type: "candidate-pair",
+          nominated: true,
+          state: "succeeded",
+          localCandidateId: "L",
+        },
+        { id: "L", type: "local-candidate", candidateType: type },
+      ].map((s) => [s.id, s]),
+    );
+  assert.equal(usesRelay(stats("relay")), true);
+  assert.equal(usesRelay(stats("host")), false);
+  assert.equal(usesRelay(stats("srflx", false)), false, "falls back to the nominated pair");
+  assert.equal(usesRelay(new Map()), null);
 });

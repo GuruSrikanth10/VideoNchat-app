@@ -71,6 +71,8 @@ function loadConfig(env = process.env) {
     publicUrl: url("PUBLIC_URL"),
     trustProxy,
     logLevel: env.LOG_LEVEL || (nodeEnv === "test" ? "silent" : "info"),
+    // Bearer token for GET /metrics; without it, there are no metrics.
+    metricsToken: env.METRICS_TOKEN || null,
     maxRoomSize: integer("MAX_ROOM_SIZE", 6, { min: 2, max: 50 }),
     reconnectGraceMs: integer("RECONNECT_GRACE_SECONDS", 15, { min: 0, max: 300 }) * 1000,
     shutdownGraceMs: integer("SHUTDOWN_GRACE_SECONDS", 5, { min: 0, max: 60 }) * 1000,
@@ -83,6 +85,9 @@ function loadConfig(env = process.env) {
     },
   };
 
+  if (config.metricsToken && config.metricsToken.length < 16) {
+    errors.push("METRICS_TOKEN must be at least 16 characters long");
+  }
   if (config.ice.turnUrls.length > 0 && !config.ice.turnSecret) {
     errors.push("TURN_SECRET is required when TURN_URLS is set");
   }

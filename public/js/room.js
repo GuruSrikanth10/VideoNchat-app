@@ -3,7 +3,8 @@ import { connect, request } from "./lib/socket.js";
 import { PeerMesh, videoLimitsFor } from "./lib/rtc.js";
 import { LocalMedia } from "./lib/media.js";
 import { ScreenShare } from "./lib/screen-share.js";
-import { summarize, rate } from "./lib/stats.js";
+import { summarize, rate, usesRelay } from "./lib/stats.js";
+import { reportErrors } from "./lib/telemetry.js";
 import { local, session } from "./lib/storage.js";
 import { Tiles } from "./ui/tiles.js";
 import { Chat } from "./ui/chat.js";
@@ -38,12 +39,22 @@ const EFFECTS_KEY = "videonchat:effects";
 const CAPTIONS_KEY = "videonchat:captions";
 const LAST_CALL_KEY = "videonchat:last-call";
 
+reportErrors();
 hydrateIcons();
 
 const socket = connect();
 const media = new LocalMedia();
 const share = new ScreenShare();
-const tiles = new Tiles($("tiles"), { onFlipCamera: () => flipCamera() });
+const tiles = new Tiles($("tiles"), {
+  onFlipCamera: () => flipCamera(),
+  onFirstFrame: (id) => {
+    const since = appearedAt.get(id);
+    if (since === undefined) return;
+    appearedAt.delete(id);
+    sendTelemetry({ kind: "first-video", ms: Math.round(performance.now() - since) });
+  },
+});
+const appearedAt = new Map(); // participant ID -> when they appeared, until their first frame
 const participants = new Map(); // id -> { id, name, audio, video, screen }
 const outbox = []; // signals produced while offline
 const statsHistory = new Map(); // id -> last stats summary
@@ -220,9 +231,32 @@ function createMesh(iceServers) {
   created.addEventListener("track", ({ detail }) => showRemoteMedia(detail.id));
   created.addEventListener("channel", ({ detail }) => fileShare.attach(detail.id, detail.channel));
   created.addEventListener("state", ({ detail }) => {
-    if (detail.state === "failed") tiles.upsert(detail.id, { quality: "poor" });
+    if (detail.state === "failed") {
+      tiles.upsert(detail.id, { quality: "poor" });
+      sendTelemetry({ kind: "ice-failed" });
+    }
+    if (detail.state === "connected") reportConnection(created, detail.id);
   });
   return created;
+}
+
+// How calls go, for the server's metrics (counts and timings only).
+function sendTelemetry(report) {
+  if (joined) socket.emit("telemetry", report);
+}
+
+// Whether a connection needed a TURN relay, once per connection.
+const reportedConnections = new WeakSet();
+async function reportConnection(peers, id) {
+  const pc = peers.connection(id);
+  if (!pc || reportedConnections.has(pc)) return;
+  reportedConnections.add(pc);
+  try {
+    const relay = usesRelay(await pc.getStats());
+    if (relay !== null) sendTelemetry({ kind: "connected", relay });
+  } catch {
+    // closed meanwhile
+  }
 }
 
 function sendSignal(signal) {
@@ -268,6 +302,7 @@ function handleJoinError(error) {
 
 function addParticipant(participant, { quiet = false } = {}) {
   const known = participants.has(participant.id);
+  if (!known) appearedAt.set(participant.id, performance.now());
   participants.set(participant.id, participant);
   tiles.upsert(participant.id, {
     name: participant.name,

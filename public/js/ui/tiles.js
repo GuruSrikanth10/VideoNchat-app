@@ -40,11 +40,14 @@ export class Tiles {
   #tiles = new Map();
   #pinned = null;
   #onFlipCamera;
+  #onFirstFrame;
 
-  // onFlipCamera() is called by your own tile's "Switch camera" button.
-  constructor(root, { onFlipCamera = () => {} } = {}) {
+  // onFlipCamera() is called by your own tile's "Switch camera" button, and
+  // onFirstFrame(id) when someone's video first shows a picture.
+  constructor(root, { onFlipCamera = () => {}, onFirstFrame = () => {} } = {}) {
     this.#root = root;
     this.#onFlipCamera = onFlipCamera;
+    this.#onFirstFrame = onFirstFrame;
     new ResizeObserver(() => this.#relayout()).observe(root);
   }
 
@@ -206,6 +209,17 @@ export class Tiles {
     video.muted = self || screen;
     video.classList.add("tile__video");
     if (self) video.classList.add("tile__video--mirrored");
+    if (!self && !screen) {
+      // Audio can arrive first, so wait for an actual picture.
+      const firstFrame = () => {
+        if (!video.videoWidth) return;
+        video.removeEventListener("loadeddata", firstFrame);
+        video.removeEventListener("resize", firstFrame);
+        this.#onFirstFrame(id);
+      };
+      video.addEventListener("loadeddata", firstFrame);
+      video.addEventListener("resize", firstFrame);
+    }
 
     const avatar = document.createElement("div");
     avatar.className = "tile__avatar";

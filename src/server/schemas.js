@@ -101,6 +101,25 @@ function parseCaption(payload) {
   return ok({ text, final: payload.final });
 }
 
+// What a client reports about its calls (see "telemetry" in realtime.js).
+function parseTelemetry(payload) {
+  if (!isObject(payload)) return fail("invalid-payload");
+  const { kind } = payload;
+  if (kind === "first-video") {
+    const { ms } = payload;
+    return Number.isFinite(ms) && ms >= 0 && ms <= 600_000
+      ? ok({ kind, ms })
+      : fail("invalid-payload");
+  }
+  if (kind === "connected") {
+    return typeof payload.relay === "boolean"
+      ? ok({ kind, relay: payload.relay })
+      : fail("invalid-payload");
+  }
+  if (kind === "ice-failed") return ok({ kind });
+  return fail("invalid-payload");
+}
+
 function parseRecording(payload) {
   if (!isObject(payload) || typeof payload.recording !== "boolean") return fail("invalid-payload");
   return ok({ recording: payload.recording });
@@ -164,6 +183,7 @@ module.exports = {
   parseReaction,
   parseRecording,
   parseCaption,
+  parseTelemetry,
   parseSignal,
   REACTIONS,
   MAX_NAME,

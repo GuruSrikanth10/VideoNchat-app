@@ -7,6 +7,7 @@ const { createLimiter } = require("./rate-limit");
 const { iceServersFor } = require("./ice");
 const schemas = require("./schemas");
 const { isToken } = require("./tokens");
+const { createMetrics } = require("./metrics");
 
 // Signals held for someone who is reconnecting (bounded).
 const MAX_PENDING_SIGNALS = 500;
@@ -25,7 +26,7 @@ function isAllowedOrigin(req, config) {
   }
 }
 
-function attachRealtime({ io, rooms, config, logger }) {
+function attachRealtime({ io, rooms, config, logger, metrics = createMetrics() }) {
   const leaveRoom = (roomId, participantId) => {
     const left = rooms.leave(roomId, participantId);
     if (!left) return;
@@ -89,6 +90,7 @@ function attachRealtime({ io, rooms, config, logger }) {
       let result = session ? rooms.resume(roomId, session, socket.id) : undefined;
       const resumed = Boolean(result);
       if (!result) result = rooms.join(roomId, { name, socketId: socket.id, ticket });
+      metrics.joins.inc({ result: result.error ?? (resumed ? "resumed" : "ok") });
       if (result.error) return reply({ ok: false, error: result.error });
       for (const { roomId: knocked, knock } of rooms.cancelKnocks(socket.id)) {
         toHosts(knocked, "knock:resolved", { id: knock.id, admitted: knocked === roomId });
@@ -159,6 +161,7 @@ function attachRealtime({ io, rooms, config, logger }) {
       }
       const result = rooms.knock(roomId, { name, socketId: socket.id });
       if (result.error) return reply({ ok: false, error: result.error });
+      metrics.knocks.inc();
       toHosts(roomId, "knock:request", knockView(result.knock));
       reply({ ok: true, id: result.knock.id });
     });
@@ -255,6 +258,7 @@ function attachRealtime({ io, rooms, config, logger }) {
         ts: Date.now(),
       };
       rooms.addMessage(socket.data.roomId, message);
+      metrics.chatMessages.inc();
       io.to(socket.data.roomId).emit("chat:message", message);
       reply({ ok: true, id: message.id });
     });
@@ -322,10 +326,24 @@ function attachRealtime({ io, rooms, config, logger }) {
       if (!participant) return reply({ ok: false, error: "not-joined" });
       const parsed = schemas.parseReaction(payload);
       if (!parsed.ok) return reply(parsed);
+      metrics.reactions.inc();
       socket.to(socket.data.roomId).emit("reaction", {
         from: participant.id,
         emoji: parsed.value.emoji,
       });
+      reply({ ok: true });
+    });
+
+    // How calls are going, for the metrics: how long video took to appear,
+    // whether connections needed TURN, and connections that failed.
+    handle("telemetry", (payload, reply) => {
+      if (!current()) return reply({ ok: false, error: "not-joined" });
+      const parsed = schemas.parseTelemetry(payload);
+      if (!parsed.ok) return reply(parsed);
+      const report = parsed.value;
+      if (report.kind === "first-video") metrics.firstVideo.observe(report.ms / 1000);
+      if (report.kind === "connected") metrics.peerConnections.inc({ relay: String(report.relay) });
+      if (report.kind === "ice-failed") metrics.iceFailures.inc();
       reply({ ok: true });
     });
 

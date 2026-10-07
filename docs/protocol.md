@@ -170,6 +170,16 @@ and are limited to a burst of 30, then 10 a second.
 | --- | --- | --- |
 | `net:ping` | client → server | acknowledged immediately; used to measure round-trip time |
 
+## Telemetry
+
+| Event | Direction | Payload | Reply / notes |
+| --- | --- | --- | --- |
+| `telemetry` | client → server | `{ kind: "first-video", ms }`, `{ kind: "connected", relay }` or `{ kind: "ice-failed" }` | `{ ok }`; counted in `/metrics`, never logged per person |
+
+Clients report how long each person's video took to appear (`ms`, up to
+10 minutes), whether each connection needed a TURN relay, and connections
+that failed. Limited to a burst of 20, then 1 a second.
+
 ## Files (peer to peer)
 
 Files never pass through the server. Every peer connection has one data

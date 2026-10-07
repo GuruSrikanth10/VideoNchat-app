@@ -34,6 +34,21 @@ export function summarize(report, previous = null, now = Date.now()) {
   return { time: now, rtt, jitter, lossPercent, kbps, packetsLost, packetsReceived, bytesReceived };
 }
 
+// Whether the connection in use goes through a TURN relay: true, false, or
+// null if no connection has been chosen yet.
+export function usesRelay(report) {
+  const stats = [...report.values()];
+  const byId = new Map(stats.map((stat) => [stat.id, stat]));
+  const transport = stats.find((stat) => stat.type === "transport" && stat.selectedCandidatePairId);
+  const pair =
+    byId.get(transport?.selectedCandidatePairId) ??
+    stats.find(
+      (stat) => stat.type === "candidate-pair" && stat.nominated && stat.state === "succeeded",
+    );
+  const local = byId.get(pair?.localCandidateId);
+  return local ? local.candidateType === "relay" : null;
+}
+
 // "good", "fair" or "poor", or null while there's nothing to judge yet.
 export function rate({ rtt, lossPercent, jitter }) {
   if (rtt === null && lossPercent === null) return null;

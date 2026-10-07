@@ -50,7 +50,7 @@ module.exports = defineConfig({
   },
   webServer: {
     command: "node app.js",
-    env: { PORT: String(PORT) },
+    env: { PORT: String(PORT), METRICS_TOKEN: "e2e-metrics-token-for-tests" },
     url: `http://127.0.0.1:${PORT}/leave`,
     reuseExistingServer: !process.env.CI,
   },
