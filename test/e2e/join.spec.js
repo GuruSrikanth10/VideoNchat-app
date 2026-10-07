@@ -84,10 +84,14 @@ test("settings can be opened during the call", async ({ openUser, room }) => {
   await expect(dialog).toBeHidden();
 });
 
-test("leaving offers to rejoin or start a new meeting", async ({ openUser, room }) => {
+test("leaving says how long you were there, and offers to rejoin or start again", async ({
+  openUser,
+  room,
+}) => {
   const page = await openUser();
   await joinMeeting(page, room, "Leaver");
   await leaveMeeting(page);
+  await expect(page.getByText(/^You were in the meeting for \d+ seconds?\.$/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Rejoin" })).toHaveAttribute("href", `/${room}`);
   await page.getByRole("link", { name: "Start a new meeting" }).click();
   await expect(page).toHaveURL(/\/[0-9a-f-]{36}$/);

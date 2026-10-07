@@ -28,6 +28,7 @@ const $ = (id) => document.getElementById(id);
 const roomId = decodeURIComponent(location.pathname.split("/").filter(Boolean)[0] ?? "");
 const NAME_KEY = "videonchat:name";
 const SESSION_KEY = `videonchat:session:${roomId}`;
+const LAST_CALL_KEY = "videonchat:last-call";
 
 hydrateIcons();
 
@@ -45,6 +46,7 @@ let mesh = null;
 let name = "";
 let joined = false;
 let leaving = false;
+let callStartedAt = 0;
 
 const chat = new Chat({
   list: $("messages"),
@@ -89,6 +91,7 @@ async function enterCall(chosenName) {
   if (!(await join())) return false;
 
   lobby.destroy();
+  callStartedAt = Date.now();
   document.body.dataset.state = "call";
   $("lobby").hidden = true;
   document.querySelector(".room").hidden = false;
@@ -636,6 +639,11 @@ async function leave() {
   joined = false;
   await request(socket, "room:leave", undefined, 2000);
   session.remove(SESSION_KEY);
+  // For the leave page: how long the call lasted.
+  session.set(
+    LAST_CALL_KEY,
+    JSON.stringify({ room: roomId, seconds: (Date.now() - callStartedAt) / 1000 }),
+  );
   mesh?.closeAll();
   share.stop();
   media.stop();
