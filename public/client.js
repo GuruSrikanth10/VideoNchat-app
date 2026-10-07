@@ -41,76 +41,149 @@ Swal.fire({
     secure,
   });
 
-  var peers = {};
-  var currentPeer = [];
-  var currentUser;
+  // Every call, in both directions, keyed by the remote peer ID.
+  const calls = new Map(); // peerId -> { call, video }
+  var currentUser = null;
+  var myVideoStream = null;
 
-  var myVideoStream;
-  navigator.mediaDevices
-    .getUserMedia({
-      audio: true,
-      video: true,
-    })
-    .then((stream) => {
+  // Camera and mic, then mic only, then watch-only. Never rejects.
+  const mediaReady = getLocalMedia();
+
+  const peerOpen = new Promise((resolve, reject) => {
+    peer.once("open", resolve);
+    peer.once("error", reject);
+  });
+
+  peer.on("error", (err) => console.warn("PeerJS:", err.type));
+  // If the signalling connection drops, reconnect with the same peer ID.
+  peer.on("disconnected", () => {
+    setTimeout(() => {
+      if (!peer.destroyed) peer.reconnect();
+    }, 2000);
+  });
+
+  // Registered immediately so an early call is never lost; it is answered
+  // once local media has settled (without media we can still watch).
+  peer.on("call", async (call) => {
+    call.answer((await mediaReady) ?? undefined);
+    trackCall(call);
+  });
+
+  const joinRoom = () =>
+    socket.emit("join-room", ROOM_ID, currentUser, user, tabSecret);
+
+  // Announce ourselves only when calls can be answered, so the people
+  // already in the room can call straight away.
+  Promise.all([peerOpen, mediaReady])
+    .then(([peerId, stream]) => {
+      currentUser = peerId;
       myVideoStream = stream;
-      addVideoStream(myVideo, stream);
+      if (stream) addVideoStream(myVideo, stream);
+      joinRoom();
+    })
+    .catch((err) => {
+      Swal.fire({
+        icon: "error",
+        title: "Couldn't connect",
+        text: "The call server is unreachable (" + (err.type || err.message) + "). Reload to try again.",
+        confirmButtonText: "Reload",
+      }).then(() => location.reload());
+    });
 
-      peer.on("call", (call) => {
-        // Answer the call, providing our mediaStream
-        call.answer(stream);
-        const video = document.createElement("video");
+  // After Socket.IO reconnects (network blip, laptop sleep), join again.
+  socket.on("connect", () => {
+    if (currentUser) joinRoom();
+  });
 
-        call.on("stream", (userVideoStream) => {
-          addVideoStream(video, userVideoStream);
-        });
+  socket.on("user-connected", async (userId, userName) => {
+    //For alert
+    Swal.fire({
+      position: "top-end",
+      text: userName + " Has joined the meet!!",
+      showConfirmButton: false,
+      timer: 1500,
+      width: 250,
+    });
+    const stream = await mediaReady;
+    if (stream) trackCall(peer.call(userId, stream));
+  });
 
-        currentPeer.push(call.peerConnection);
+  socket.on("user-disconnected", (userId) => dropCall(userId));
 
-        call.on("close", () => {
-          video.remove();
-        });
-      });
+  function trackCall(call) {
+    if (!call) return;
+    dropCall(call.peer); // replace any stale call with the same person
+    const video = document.createElement("video");
+    calls.set(call.peer, { call, video });
+    call.on("stream", (remoteStream) => addVideoStream(video, remoteStream));
+    const onEnd = () => {
+      if (calls.get(call.peer)?.call === call) dropCall(call.peer);
+    };
+    call.on("close", onEnd);
+    call.on("error", onEnd);
+    // People who join during a screen share get the screen, not the camera.
+    if (screenTrack) {
+      call.peerConnection
+        ?.getSenders()
+        .find((s) => s.track?.kind === "video")
+        ?.replaceTrack(screenTrack)
+        .catch(() => {});
+    }
+  }
 
-      socket.on("user-connected", (userId, userName) => {
-        //For alert
+  function dropCall(peerId) {
+    const entry = calls.get(peerId);
+    if (!entry) return;
+    calls.delete(peerId);
+    entry.video.remove();
+    entry.call.close();
+  }
+
+  async function getLocalMedia() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      showMediaError({ name: "SecurityError" });
+      return null;
+    }
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    } catch (videoError) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         Swal.fire({
           position: "top-end",
-          text: userName + " Has joined the meet!!",
+          text: "No camera available, so you joined with audio only.",
           showConfirmButton: false,
-          timer: 1500,
-          width: 250,
+          timer: 3000,
+          width: 300,
         });
-        const fc = () => connectToNewUser(userId, stream);
-        timerid = setTimeout(fc, 1000);
-      });
+        return stream;
+      } catch (audioError) {
+        showMediaError(videoError.name === "NotAllowedError" ? videoError : audioError);
+        return null;
+      }
+    }
+  }
 
-      socket.on("user-disconnected", (userId) => {
-        if (peers[userId]) peers[userId].close();
-        console.log(userId + " : Disconnected :(");
-      });
+  function showMediaError(err) {
+    const reasons = {
+      NotAllowedError:
+        "Camera and microphone access is blocked. Allow it in your browser's site settings, then try again.",
+      NotFoundError: "No camera or microphone was found on this device.",
+      NotReadableError: "Your camera or microphone is being used by another app.",
+      SecurityError: "Camera and microphone need a secure (https) connection.",
+    };
+    Swal.fire({
+      icon: "warning",
+      title: "You joined without camera or microphone",
+      text: (reasons[err.name] || "Your camera or microphone couldn't start.") +
+        " You can still see and hear the people already in the call.",
+      showCancelButton: true,
+      confirmButtonText: "Try again",
+      cancelButtonText: "Continue",
+    }).then((result) => {
+      if (result.isConfirmed) location.reload();
     });
-
-
-
-  const connectToNewUser = (userId, stream) => {
-    // Call a peer, providing our mediaStream
-    const call = peer.call(userId, stream);
-    const video = document.createElement("video");
-    call.on("stream", (userVideoStream) => {
-      addVideoStream(video, userVideoStream);
-    });
-    call.on("close", () => {
-      video.remove();
-    });
-
-    peers[userId] = call;
-    currentPeer.push(call.peerConnection);
-  };
-
-  peer.on("open", (id) => {
-    currentUser = id;
-    socket.emit("join-room", ROOM_ID, id, user, tabSecret);
-  });
+  }
 
   const addVideoStream = (video, stream) => {
     video.srcObject = stream;
@@ -126,15 +199,26 @@ Swal.fire({
   const muteButton = document.querySelector("#muteButton");
 
   muteButton.addEventListener("click", () => {
-    const MicEnabled = myVideoStream.getAudioTracks()[0].enabled;
-    if (MicEnabled) {
-      myVideoStream.getAudioTracks()[0].enabled = false;
+    const track = myVideoStream?.getAudioTracks()[0];
+    if (!track) return showMissingDevice("microphone");
+    if (track.enabled) {
+      track.enabled = false;
       setMuteButton();
     } else {
-      myVideoStream.getAudioTracks()[0].enabled = true;
+      track.enabled = true;
       unsetMuteButton();
     }
   });
+
+  function showMissingDevice(kind) {
+    Swal.fire({
+      position: "top-end",
+      text: "No " + kind + " is connected to this call.",
+      showConfirmButton: false,
+      timer: 2000,
+      width: 250,
+    });
+  }
 
   const unsetMuteButton = () => {
     const html = `<i class="fas fa-microphone"></i>`;
@@ -167,12 +251,13 @@ Swal.fire({
   const stopVideo = document.querySelector("#stopVideo");
 
   stopVideo.addEventListener("click", () => {
-    const VideoEnabled = myVideoStream.getVideoTracks()[0].enabled;
-    if (VideoEnabled) {
-      myVideoStream.getVideoTracks()[0].enabled = false;
+    const track = myVideoStream?.getVideoTracks()[0];
+    if (!track) return showMissingDevice("camera");
+    if (track.enabled) {
+      track.enabled = false;
       unsetVideoButton();
     } else {
-      myVideoStream.getVideoTracks()[0].enabled = true;
+      track.enabled = true;
       setVideoButton();
     }
   });
@@ -226,37 +311,44 @@ Swal.fire({
 
   const shareScreen = document.querySelector("#shareScreen");
 
+  let screenTrack = null;
+
+  // Swaps the outgoing video on every live call. One failing connection
+  // can't stop the others from switching.
+  function replaceOutgoingVideo(track) {
+    return Promise.allSettled(
+      [...calls.values()].map(({ call }) => {
+        const sender = call.peerConnection
+          ?.getSenders()
+          .find((s) => s.track?.kind === "video");
+        return sender?.replaceTrack(track);
+      })
+    );
+  }
+
   shareScreen.addEventListener("click", async () => {
-    const video = document.createElement("video");
-    var captureStream = null;
-
+    if (screenTrack) return stopScreenShare(); // second click stops sharing
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      return Swal.fire({ icon: "info", text: "Screen sharing isn't supported in this browser." });
+    }
     try {
-      captureStream = await navigator.mediaDevices.getDisplayMedia();
-      var videoTrack = captureStream.getVideoTracks()[0];
-
-      videoTrack.onended = () => {
-        stopScreenShare();
-      };
-
-      for (var x = 0; x < currentPeer.length; x++) {
-        var sender = currentPeer[x].getSenders().find((s) => {
-          return s.track.kind === videoTrack.kind;
-        });
-        sender.replaceTrack(videoTrack);
-      }
+      const captureStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      screenTrack = captureStream.getVideoTracks()[0];
+      screenTrack.onended = stopScreenShare; // browser's own "Stop sharing"
+      await replaceOutgoingVideo(screenTrack);
+      shareScreen.setAttribute("aria-pressed", "true");
     } catch (err) {
-      console.error("Error: " + err);
+      console.error("Screen share failed:", err);
     }
   });
 
   function stopScreenShare() {
-    var videoTrack = myVideoStream.getVideoTracks()[0];
-    for (var x = 0; x < currentPeer.length; x++) {
-      var sender = currentPeer[x].getSenders().find((s) => {
-        return s.track.kind === videoTrack.kind;
-      });
-      sender.replaceTrack(videoTrack);
-    }
+    if (!screenTrack) return;
+    screenTrack.onended = null;
+    screenTrack.stop();
+    screenTrack = null;
+    shareScreen.setAttribute("aria-pressed", "false");
+    replaceOutgoingVideo(myVideoStream?.getVideoTracks()[0] ?? null);
   }
 
   //****************************// MESSAGING //****************************//
