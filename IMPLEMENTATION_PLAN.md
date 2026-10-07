@@ -1,10 +1,11 @@
 # VideoNChat: audit and implementation plan
 
-**Status:** plan only. No application code was changed in this commit.
+**Status:** implemented on the `implement-roadmap` branch (pull request #2). See [Implementation status](#implementation-status).
 **Audited revision:** `bcb9fd4` on `main` (last commit 2025-01-07). **Audit date:** 2026-10-07.
 
 ## Contents
 
+- [Implementation status](#implementation-status)
 1. [Summary](#1-summary)
 2. [How the app works today](#2-how-the-app-works-today)
 3. [How the findings were verified](#3-how-the-findings-were-verified)
@@ -16,6 +17,31 @@
 - [Appendix A: Reproduction log](#appendix-a-reproduction-log)
 - [Appendix B: Reference snippets for Phase 0](#appendix-b-reference-snippets-for-phase-0)
 - [Appendix C: Dependency plan](#appendix-c-dependency-plan)
+
+---
+
+## Implementation status
+
+All six phases are implemented. In the roadmap below, done items are
+ticked, and items done differently, not done, or left to the owner have a
+note. The main differences from the plan:
+
+- **Client build:** native ES modules instead of Vite (ADR 0002).
+- **Privacy for meetings:** a host lock with a waiting room (admit or deny)
+  instead of a passcode.
+- **Background blur:** the browser's own on-device effect where it exists,
+  instead of shipping a segmentation model.
+- **Error tracking:** browser error and CSP reports go to the server's
+  logs and `/metrics` instead of a third-party service.
+- **Shortcuts help:** opens with Ctrl/⌘+/ rather than "?", which would
+  conflict with screen readers.
+
+Not built: an SFU and Redis-backed scaling (ADR 0003), CodeQL, JSDoc type
+checking, tab audio when sharing a screen, and manual NVDA and VoiceOver
+checks.
+
+For the owner to do: set up TURN, set `PUBLIC_URL`, use a paid instance,
+delete the old PeerJS service, protect `main`, and add an uptime monitor.
 
 ---
 
@@ -774,48 +800,48 @@ Effort figures assume one developer and are rough. Task IDs refer to the finding
 Goal: close the P0s and the cheap P1s with small, low-risk changes to the existing files, with no redesign. Snippets are in [Appendix B](#appendix-b-reference-snippets-for-phase-0).
 
 **0.1 Render chat safely** (SEC-1, CHAT-5)
-- [ ] Build chat messages and the typing notice from DOM nodes with `textContent`, and append them (B4). Never pass remote data to `innerHTML`.
-- [ ] On the server, accept only strings, trim them, limit them to 1,000 characters, and drop empty messages (B6).
+- [x] Build chat messages and the typing notice from DOM nodes with `textContent`, and append them (B4). Never pass remote data to `innerHTML`.
+- [x] On the server, accept only strings, trim them, limit them to 1,000 characters, and drop empty messages (B6).
 
 **0.2 Make joining reliable** (RTC-1, RTC-5, RTC-6)
-- [ ] Register `peer.on("call")` immediately, and answer once local media has settled (B5).
-- [ ] Emit `join-room` only once the peer is open and media has settled. Remove the 1-second `setTimeout`.
-- [ ] Media fallback: camera and mic, then mic only, then watch-only, with a visible message and a "Try again" button.
-- [ ] One `calls` map for both directions. Remove tiles on `user-disconnected`, `close` and `error`.
+- [x] Register `peer.on("call")` immediately, and answer once local media has settled (B5).
+- [x] Emit `join-room` only once the peer is open and media has settled. Remove the 1-second `setTimeout`.
+- [x] Media fallback: camera and mic, then mic only, then watch-only, with a visible message and a "Try again" button.
+- [x] One `calls` map for both directions. Remove tiles on `user-disconnected`, `close` and `error`.
 
 **0.3 Same-origin signalling** (RTC-2, RTC-3, SRV-1)
-- [ ] `const port = Number(process.env.PORT) || 3000;` (B1).
-- [ ] Route only PeerJS's own WebSocket path to PeerJS (B2), and add `ws` as a direct dependency.
-- [ ] Point the client at `/peerjs` on the same origin (B3).
-- [ ] After deploying, check DevTools → Network → WS: Socket.IO should be using `websocket`. Then retire the external PeerJS service.
+- [x] `const port = Number(process.env.PORT) || 3000;` (B1).
+- [x] Route only PeerJS's own WebSocket path to PeerJS (B2), and add `ws` as a direct dependency. *(Done in Phase 0. PeerJS was then removed in Phase 2.)*
+- [x] Point the client at `/peerjs` on the same origin (B3). *(Done in Phase 0. PeerJS was then removed in Phase 2.)*
+- [ ] After deploying, check DevTools → Network → WS: Socket.IO should be using `websocket`. Then retire the external PeerJS service. *(Owner: PeerJS was removed in Phase 2. Delete the old PeerJS service on Render.)*
 
 **0.4 Harden the server's socket handlers** (CHAT-1, SEC-3, SEC-4, SEC-7, SEC-10, CHAT-3)
-- [ ] Register handlers once per connection. Keep `{ roomId, peerId, name, secret }` in `socket.data`, and ignore repeated joins (B6).
-- [ ] Validate the room ID, the peer ID and the name (1–40 characters).
-- [ ] Accept a peer ID that's already in the room only with the same per-tab secret, and then replace the stale socket.
-- [ ] Include the sender's peer ID in `createMessage`, so the client decides "Me" by ID.
-- [ ] Set `maxHttpBufferSize: 64 * 1024`, remove the `cors` block, and stop logging names and message bodies.
+- [x] Register handlers once per connection. Keep `{ roomId, peerId, name, secret }` in `socket.data`, and ignore repeated joins (B6).
+- [x] Validate the room ID, the peer ID and the name (1–40 characters).
+- [x] Accept a peer ID that's already in the room only with the same per-tab secret, and then replace the stale socket.
+- [x] Include the sender's peer ID in `createMessage`, so the client decides "Me" by ID.
+- [x] Set `maxHttpBufferSize: 64 * 1024`, remove the `cors` block, and stop logging names and message bodies.
 
 **0.5 Cross-browser and resilience fixes** (RTC-4, RTC-7, RTC-9, RTC-12, CHAT-2, CHAT-4, SRV-3, UI-4)
-- [ ] Feed the ping badge from a Socket.IO round trip instead of `navigator.connection` (B8).
-- [ ] Re-emit `join-room` after every reconnect.
-- [ ] Name prompt: disable Escape (or handle dismissal), trim, cap the length, and remember the name in `localStorage`.
-- [ ] Drive the typing indicator from the `input` event, throttled and auto-expiring (B7). Ignore Enter while `isComposing`.
-- [ ] Leave: stop the local tracks, then `location.assign("/leave")`.
-- [ ] Videos: `playsInline` and `autoplay`, no `controls`, and a mirrored self-view in CSS.
+- [x] Feed the ping badge from a Socket.IO round trip instead of `navigator.connection` (B8).
+- [x] Re-emit `join-room` after every reconnect.
+- [x] Name prompt: disable Escape (or handle dismissal), trim, cap the length, and remember the name in `localStorage`.
+- [x] Drive the typing indicator from the `input` event, throttled and auto-expiring (B7). Ignore Enter while `isComposing`.
+- [x] Leave: stop the local tracks, then `location.assign("/leave")`.
+- [x] Videos: `playsInline` and `autoplay`, no `controls`, and a mirrored self-view in CSS.
 
 **0.6 Dependencies and hygiene** (SEC-5, SEC-9, SRV-2, DX-1)
-- [ ] Run `npm audit fix`, which brings in `express@4.22.3` and `socket.io@4.8.4`, then re-test.
-- [ ] Replace `uuid` with `crypto.randomUUID()`.
-- [ ] Replace `nodemon` with a `"dev": "node --watch app.js"` script.
-- [ ] Move `socket.io-client` to devDependencies; it's for tests.
-- [ ] Load the Socket.IO client from the app itself (`/socket.io/socket.io.min.js`), so it always matches the server.
-- [ ] Pin exact SweetAlert2 and PeerJS versions with SRI hashes. This is a stopgap until Phase 2.
-- [ ] Use absolute asset paths (`/style.css`, `/client.js`).
-- [ ] Delete `tempCodeRunnerFile.js` and extend `.gitignore`.
+- [x] Run `npm audit fix`, which brings in `express@4.22.3` and `socket.io@4.8.4`, then re-test.
+- [x] Replace `uuid` with `crypto.randomUUID()`.
+- [x] Replace `nodemon` with a `"dev": "node --watch app.js"` script.
+- [x] Move `socket.io-client` to devDependencies; it's for tests.
+- [x] Load the Socket.IO client from the app itself (`/socket.io/socket.io.min.js`), so it always matches the server.
+- [x] Pin exact SweetAlert2 and PeerJS versions with SRI hashes. This is a stopgap until Phase 2. *(Done in Phase 0. Both were then removed in Phase 2.)*
+- [x] Use absolute asset paths (`/style.css`, `/client.js`).
+- [x] Delete `tempCodeRunnerFile.js` and extend `.gitignore`.
 
 **0.7 Quick accessibility win** (UI-1, partial)
-- [ ] Turn the controls into `<button type="button">` elements with `aria-label`, plus `aria-pressed` on toggles. Reset the button styles in CSS.
+- [x] Turn the controls into `<button type="button">` elements with `aria-label`, plus `aria-pressed` on toggles. Reset the button styles in CSS. *(Toggles change their label to say what pressing does, so they don't also use `aria-pressed`.)*
 
 **Suggested PRs, in order:**
 1. 0.1
@@ -843,14 +869,14 @@ Each is small enough to review in one sitting.
 Goal: every Phase 0 bug gets a regression test, and CI blocks any merge that brings one back.
 
 **1.1 Tooling**
-- [ ] ESLint (flat config): `eslint:recommended`, browser and Node globals, and `eslint-plugin-no-unsanitized`.
-- [ ] Prettier.
-- [ ] stylelint with `stylelint-config-standard`, which would have caught UI-5.
-- [ ] EditorConfig.
-- [ ] npm scripts: `dev`, `start`, `lint`, `format`, `test`, `test:e2e`.
+- [x] ESLint (flat config): `eslint:recommended`, browser and Node globals, and `eslint-plugin-no-unsanitized`.
+- [x] Prettier.
+- [x] stylelint with `stylelint-config-standard`, which would have caught UI-5.
+- [x] EditorConfig.
+- [x] npm scripts: `dev`, `start`, `lint`, `format`, `test`, `test:e2e`.
 
 **1.2 Server integration tests**
-- [ ] `node:test` with `socket.io-client`, covering:
+- [x] `node:test` with `socket.io-client`, covering: *(The per-tab secret became the session token.)*
   - the join and leave lifecycle;
   - idempotent repeated joins;
   - payload validation and limits;
@@ -859,12 +885,12 @@ Goal: every Phase 0 bug gets a regression test, and CI blocks any merge that bri
   - no message content in the logs.
 
 **1.3 End-to-end tests**
-- [ ] `@playwright/test`, with these projects:
+- [x] `@playwright/test`, with these projects:
   - Chromium, with `--use-fake-ui-for-media-stream --use-fake-device-for-media-stream`;
   - Firefox, with the prefs `media.navigator.streams.fake` and `media.navigator.permission.disabled`;
   - WebKit, for UI smoke tests.
-- [ ] `webServer` starts the app for the run.
-- [ ] Scenarios, based on Appendix A:
+- [x] `webServer` starts the app for the run.
+- [x] Scenarios, based on Appendix A:
   - 2- and 3-person calls;
   - the XSS payload stays inert;
   - a slow camera permission;
@@ -876,89 +902,89 @@ Goal: every Phase 0 bug gets a regression test, and CI blocks any merge that bri
   - an axe-core scan.
 
 **1.4 CI and dependency updates**
-- [ ] A GitHub Actions workflow on every push and pull request:
+- [x] A GitHub Actions workflow on every push and pull request:
   - `npm ci`, then lint, unit tests, E2E tests and `npm audit --omit=dev --audit-level=high`;
   - upload the Playwright trace when E2E fails;
   - run on Node 22 and 24.
-- [ ] Dependabot for npm and GitHub Actions, weekly and grouped.
-- [ ] Optionally, CodeQL.
-- [ ] Branch protection on `main`, requiring CI to pass.
+- [x] Dependabot for npm and GitHub Actions, weekly and grouped.
+- [ ] Optionally, CodeQL. *(Not added.)*
+- [ ] Branch protection on `main`, requiring CI to pass. *(Owner: this is a repository setting.)*
 
 **1.5 Repository basics**
-- [ ] `engines.node` in `package.json`.
-- [ ] `.nvmrc`.
-- [ ] `.env.example`, listing every variable.
-- [ ] A `LICENSE` file.
+- [x] `engines.node` in `package.json`.
+- [x] `.nvmrc`.
+- [x] `.env.example`, listing every variable.
+- [x] A `LICENSE` file.
 
 **Done when:** CI is green on `main`, and reverting any Phase 0 fix makes it fail.
 
 ### Phase 2: Architecture and robustness (2–3 weeks)
 
 **2.1 Server foundation** (SEC-6, SEC-7, SEC-8, SRV-4, SRV-5)
-- [ ] Split the server into the modules in [5.3](#53-repository-layout-target).
-- [ ] `config.js` validates the environment and has safe defaults: `PORT`, `PUBLIC_URL`, `MAX_ROOM_SIZE`, `TURN_*`, `LOG_LEVEL`.
-- [ ] `pino` logs that contain IDs and counts only.
-- [ ] `/healthz`.
-- [ ] Graceful shutdown: on `SIGTERM`, emit `server:restarting`, stop accepting connections, and exit after a timeout.
-- [ ] `helmet` with a strict CSP (`default-src 'self'`, no inline script or style), plus `Permissions-Policy`.
-- [ ] Compression, and long-lived caching for fingerprinted assets.
-- [ ] A validated room route, branded 404 and 500 pages, and a favicon.
+- [x] Split the server into the modules in [5.3](#53-repository-layout-target).
+- [x] `config.js` validates the environment and has safe defaults: `PORT`, `PUBLIC_URL`, `MAX_ROOM_SIZE`, `TURN_*`, `LOG_LEVEL`.
+- [x] `pino` logs that contain IDs and counts only.
+- [x] `/healthz`.
+- [x] Graceful shutdown: on `SIGTERM`, emit `server:restarting`, stop accepting connections, and exit after a timeout.
+- [x] `helmet` with a strict CSP (`default-src 'self'`, no inline script or style), plus `Permissions-Policy`.
+- [x] Compression, and long-lived caching for fingerprinted assets. *(Assets aren't fingerprinted (ADR 0002), so they're revalidated with ETags.)*
+- [x] A validated room route, branded 404 and 500 pages, and a favicon.
 
 **2.2 Room service and protocol v1** (SEC-2, SEC-3, SEC-4, CHAT-1, CHAT-5)
-- [ ] An in-memory registry, `Map<roomId, Room>`.
-- [ ] Participant IDs issued by the server, plus a session token in `sessionStorage` for reconnects.
-- [ ] A join ack that returns the current participants and the last 50 messages.
-- [ ] Server-side timestamps.
-- [ ] A cap on participants per room.
-- [ ] A 10–15 s grace period before a departure is announced.
-- [ ] A schema for each event (`zod`, or small hand-written guards).
-- [ ] Token-bucket rate limits for each event.
-- [ ] An `Origin` check in `allowRequest`.
-- [ ] The protocol documented in `docs/protocol.md`.
+- [x] An in-memory registry, `Map<roomId, Room>`.
+- [x] Participant IDs issued by the server, plus a session token in `sessionStorage` for reconnects.
+- [x] A join ack that returns the current participants and the last 50 messages.
+- [x] Server-side timestamps.
+- [x] A cap on participants per room.
+- [x] A 10–15 s grace period before a departure is announced.
+- [x] A schema for each event (`zod`, or small hand-written guards).
+- [x] Token-bucket rate limits for each event.
+- [x] An `Origin` check in `allowRequest`.
+- [x] The protocol documented in `docs/protocol.md`.
 
 **2.3 Native WebRTC signalling (ADR-001, option B)** (RTC-2, RTC-3, RTC-5, RTC-7)
-- [ ] One `RTCPeerConnection` per remote participant.
-- [ ] The perfect-negotiation pattern (MDN), with polite and impolite roles set by comparing IDs.
-- [ ] Trickle ICE over `rtc:signal`.
-- [ ] `restartIce()` when a connection fails.
-- [ ] `recvonly` transceivers for people without devices.
-- [ ] Remove `peer` and `peerjs`.
+- [x] One `RTCPeerConnection` per remote participant.
+- [x] The perfect-negotiation pattern (MDN), with polite and impolite roles set by comparing IDs.
+- [x] Trickle ICE over `rtc:signal`.
+- [x] `restartIce()` when a connection fails.
+- [x] `recvonly` transceivers for people without devices. *(Every transceiver is sendrecv with no track until there is one, which covers the same case.)*
+- [x] Remove `peer` and `peerjs`.
 
 **2.4 Client restructure and build** (SEC-9, DX-1, DX-3)
-- [ ] ES modules as in 5.3, built with Vite: hashed assets, and a dev server that proxies Socket.IO.
-- [ ] All dependencies from npm: `socket.io-client`, and inline SVG icons (e.g. Lucide).
-- [ ] Replace SweetAlert2 with a native `<dialog>` and a toast module.
-- [ ] Turn the EJS templates into static HTML that reads the room ID from the URL.
-- [ ] Type-check with JSDoc and `checkJs`, or move to TypeScript (see Section 8).
+- [ ] ES modules as in 5.3, built with Vite: hashed assets, and a dev server that proxies Socket.IO. *(Not done: the client ships as native ES modules. See ADR 0002.)*
+- [x] All dependencies from npm: `socket.io-client`, and inline SVG icons (e.g. Lucide). *(The Socket.IO client is served by the app's own server.)*
+- [x] Replace SweetAlert2 with a native `<dialog>` and a toast module.
+- [x] Turn the EJS templates into static HTML that reads the room ID from the URL. *(Pages are static HTML in `views/`; the server only fills in `PUBLIC_URL`.)*
+- [ ] Type-check with JSDoc and `checkJs`, or move to TypeScript (see Section 8). *(Not done. See ADR 0002.)*
 
 **2.5 Media manager** (RTC-5, RTC-9, RTC-11, RTC-12)
-- [ ] Explicit capture constraints.
-- [ ] The fallback chain: camera and mic, then mic only, then watch-only.
-- [ ] Listing and switching devices with `enumerateDevices`, `devicechange` and `replaceTrack`.
-- [ ] Recovery when a camera is unplugged (`track.onended`).
-- [ ] Mute and camera-off through `track.enabled`, broadcast as `media:state`.
-- [ ] An "Enable audio" prompt when the browser blocks autoplay.
+- [x] Explicit capture constraints.
+- [x] The fallback chain: camera and mic, then mic only, then watch-only.
+- [x] Listing and switching devices with `enumerateDevices`, `devicechange` and `replaceTrack`.
+- [x] Recovery when a camera is unplugged (`track.onended`).
+- [x] Mute and camera-off through `track.enabled`, broadcast as `media:state`.
+- [x] An "Enable audio" prompt when the browser blocks autoplay.
 
 **2.6 Screen-share controller** (RTC-8)
-- [ ] A state machine: idle → requesting → sharing → stopping.
-- [ ] One "outgoing video track", applied to every live connection with `Promise.allSettled`.
-- [ ] New connections start with the current track.
-- [ ] A local preview tile.
-- [ ] A toggle button and a "Stop sharing" action.
-- [ ] Stop the capture track when sharing ends.
-- [ ] Hide the button where `getDisplayMedia` isn't available.
-- [ ] Optionally, share tab audio.
+- [x] A state machine: idle → requesting → sharing → stopping.
+- [x] One "outgoing video track", applied to every live connection with `Promise.allSettled`.
+- [x] New connections start with the current track.
+- [x] A local preview tile.
+- [x] A toggle button and a "Stop sharing" action.
+- [x] Stop the capture track when sharing ends.
+- [x] Hide the button where `getDisplayMedia` isn't available.
+- [ ] Optionally, share tab audio. *(Not done.)*
 
 **2.7 Connectivity** (RTC-10, RTC-7)
-- [ ] `/api/ice-servers`, returning short-lived TURN credentials for `turn:` and `turns:` on port 443.
-- [ ] A "Reconnecting…" banner.
-- [ ] Socket.IO `connectionStateRecovery`.
+- [x] `/api/ice-servers`, returning short-lived TURN credentials for `turn:` and `turns:` on port 443. *(Done as the `rtc:ice-servers` event and the join reply, so only people in a room get credentials.)*
+- [x] A "Reconnecting…" banner.
+- [x] Socket.IO `connectionStateRecovery`. *(Done differently: a session token resumes the same participant and queued signals are delivered, which also survives a full reconnect.)*
 
 **2.8 Call quality** (UI-4, RTC-13)
-- [ ] Sample `getStats()` every 2 s and show a quality dot on each tile (RTT, packet loss, jitter, bitrate).
-- [ ] Measure the round trip to the server with `net:ping`.
-- [ ] Adapt sender bitrate and resolution to the participant count.
-- [ ] Enforce the room cap.
+- [x] Sample `getStats()` every 2 s and show a quality dot on each tile (RTT, packet loss, jitter, bitrate).
+- [x] Measure the round trip to the server with `net:ping`.
+- [x] Adapt sender bitrate and resolution to the participant count.
+- [x] Enforce the room cap.
 
 **Done when:**
 - The browser makes no CDN requests.
@@ -973,74 +999,74 @@ Goal: every Phase 0 bug gets a regression test, and CI blocks any merge that bri
 ### Phase 3: UX/UI and accessibility (2–3 weeks)
 
 **3.1 Landing page (`/`)**
-- [ ] "New meeting" and "Join with a link or code", plus a short note on permissions and privacy. This replaces the instant redirect into a random room.
+- [x] "New meeting" and "Join with a link or code", plus a short note on permissions and privacy. This replaces the instant redirect into a random room.
 
 **3.2 Pre-join lobby**
-- [ ] A camera and mic preview with a level meter.
-- [ ] Device pickers.
-- [ ] A name field that remembers the last name used.
-- [ ] Options to join with the mic or camera off.
-- [ ] Specific help for each `getUserMedia` error: denied, not found, in use, or insecure context.
+- [x] A camera and mic preview with a level meter.
+- [x] Device pickers.
+- [x] A name field that remembers the last name used.
+- [x] Options to join with the mic or camera off.
+- [x] Specific help for each `getUserMedia` error: denied, not found, in use, or insecure context.
 
 **3.3 Video stage**
-- [ ] A grid sized by participant count: 1 person full screen, 2 side by side, 3–4 in a 2×2 grid, 5–6 in a 3×2 grid.
-- [ ] Each tile shows the name and the mic, camera and screen state, with initials when the camera is off.
-- [ ] A speaking ring, driven by a Web Audio `AnalyserNode`.
-- [ ] Pin or spotlight a tile; a shared screen becomes the main tile.
-- [ ] Fullscreen and picture-in-picture.
+- [x] A grid sized by participant count: 1 person full screen, 2 side by side, 3–4 in a 2×2 grid, 5–6 in a 3×2 grid. *(Tile sizes are computed from the stage's actual size, which also covers an open chat and phones.)*
+- [x] Each tile shows the name and the mic, camera and screen state, with initials when the camera is off.
+- [x] A speaking ring, driven by a Web Audio `AnalyserNode`.
+- [x] Pin or spotlight a tile; a shared screen becomes the main tile.
+- [x] Fullscreen and picture-in-picture.
 
 **3.4 Control bar**
-- [ ] Buttons with tooltips and a clear on/off style, with no pop-ups when toggling.
-- [ ] Keyboard shortcuts with a "?" help dialog: Ctrl/⌘+D for the mic and Ctrl/⌘+E for the camera, as in Google Meet.
-- [ ] A small confirmation dialog before leaving.
+- [x] Buttons with tooltips and a clear on/off style, with no pop-ups when toggling.
+- [x] Keyboard shortcuts with a "?" help dialog: Ctrl/⌘+D for the mic and Ctrl/⌘+E for the camera, as in Google Meet. *(Help opens with Ctrl/⌘+/ instead of "?", because single-key shortcuts get in the way of screen readers (WCAG 2.1.4).)*
+- [x] A small confirmation dialog before leaving.
 
 **3.5 Chat panel**
-- [ ] A semantic list of grouped messages with server timestamps.
-- [ ] An unread badge.
-- [ ] A "New messages ↓" pill instead of forced scrolling.
-- [ ] Safe clickable links (`rel="noopener noreferrer"`).
-- [ ] A typing indicator that handles several people.
-- [ ] Enter sends, Shift+Enter adds a new line, and both are IME-safe.
-- [ ] A character counter.
+- [x] A semantic list of grouped messages with server timestamps.
+- [x] An unread badge.
+- [x] A "New messages ↓" pill instead of forced scrolling.
+- [x] Safe clickable links (`rel="noopener noreferrer"`).
+- [x] A typing indicator that handles several people.
+- [x] Enter sends, Shift+Enter adds a new line, and both are IME-safe.
+- [x] A character counter.
 
 **3.6 Participants panel**
-- [ ] Everyone in the room, with their mic and camera state and a "(you)" marker.
-- [ ] A participant count in the header.
+- [x] Everyone in the room, with their mic and camera state and a "(you)" marker.
+- [x] A participant count in the header.
 
 **3.7 Notifications**
-- [ ] One non-blocking toast component, announced through `aria-live="polite"`, for joins, leaves, reconnects and errors.
+- [x] One non-blocking toast component, announced through `aria-live="polite"`, for joins, leaves, reconnects and errors.
 
 **3.8 Mobile**
-- [ ] `100dvh` and safe-area insets.
-- [ ] Chat as a bottom sheet.
-- [ ] Touch targets of at least 44 px.
-- [ ] A front/back camera switch.
-- [ ] No Share button where it isn't supported.
-- [ ] The Web Share API for invites.
+- [x] `100dvh` and safe-area insets.
+- [x] Chat as a bottom sheet. *(On phones, panels cover the stage between the top bar and the controls.)*
+- [x] Touch targets of at least 44 px.
+- [x] A front/back camera switch.
+- [x] No Share button where it isn't supported.
+- [x] The Web Share API for invites.
 
 **3.9 Visual design**
-- [ ] CSS custom-property tokens for colour, spacing, radius and type.
-- [ ] Light and dark themes (`prefers-color-scheme`).
-- [ ] WCAG AA contrast.
-- [ ] `:focus-visible` styles.
-- [ ] Respect for `prefers-reduced-motion`.
-- [ ] A system font stack, or a self-hosted font with `font-display: swap`.
-- [ ] Our own SVG logo, and one consistent product name.
+- [x] CSS custom-property tokens for colour, spacing, radius and type.
+- [x] Light and dark themes (`prefers-color-scheme`).
+- [x] WCAG AA contrast.
+- [x] `:focus-visible` styles.
+- [x] Respect for `prefers-reduced-motion`.
+- [x] A system font stack, or a self-hosted font with `font-display: swap`.
+- [x] Our own SVG logo, and one consistent product name.
 
 **3.10 Leave page**
-- [ ] "Rejoin" and "New meeting" buttons, and the call duration.
-- [ ] No third-party assets.
+- [x] "Rejoin" and "New meeting" buttons, and the call duration.
+- [x] No third-party assets.
 
 **3.11 Metadata**
-- [ ] A title that reflects the call state, e.g. "(3) Meeting · VideoNChat".
-- [ ] A description and an Open Graph image, so invite links preview nicely.
-- [ ] A set of favicons.
-- [ ] A web app manifest (optional PWA).
+- [x] A title that reflects the call state, e.g. "(3) Meeting · VideoNChat".
+- [x] A description and an Open Graph image, so invite links preview nicely.
+- [x] A set of favicons.
+- [x] A web app manifest (optional PWA).
 
 **3.12 Accessibility pass**
-- [ ] Keep all UI strings in one module, ready for translation.
-- [ ] Do a full keyboard walkthrough.
-- [ ] Smoke-test with NVDA and VoiceOver.
+- [x] Keep all UI strings in one module, ready for translation.
+- [x] Do a full keyboard walkthrough.
+- [ ] Smoke-test with NVDA and VoiceOver. *(Not done: this needs a manual check with each screen reader.)*
 
 **Done when:**
 - axe-core reports 0 violations on the landing, lobby and room pages.
@@ -1052,41 +1078,41 @@ Goal: every Phase 0 bug gets a regression test, and CI blocks any merge that bri
 
 Each feature is its own PR, with tests, and uses the same validation and rate limits as everything else.
 
-| Priority | Feature | Notes |
-|---|---|---|
-| High | Raise hand and emoji reactions | Small: a `room:reaction` event with a short on-screen animation |
-| High | Host controls: lock the room, remove a participant, ask someone to unmute | The creator or first joiner is host, enforced by the server |
-| High | Optional passcode or waiting room | Closes the "anyone with the link" gap for private meetings |
-| Medium | Noise-suppression toggle and background blur | Blur via on-device segmentation (e.g. MediaPipe) on a canvas or insertable stream; CPU-heavy, so opt-in |
-| Medium | Local recording with a consent banner | `MediaRecorder`; everyone is told when recording starts and stops |
-| Low | File sharing in chat | `RTCDataChannel` peer to peer, or uploads with size limits |
-| Low | Live captions | The Web Speech API where available (Chromium), as a progressive enhancement |
+| Priority | Feature | Notes | Status |
+|---|---|---|---|
+| High | Raise hand and emoji reactions | Small: a `room:reaction` event with a short on-screen animation | Done (`hand:set`, `reaction:send`) |
+| High | Host controls: lock the room, remove a participant, ask someone to unmute | The creator or first joiner is host, enforced by the server | Done, plus mute and lower hand |
+| High | Optional passcode or waiting room | Closes the "anyone with the link" gap for private meetings | Done as a lock with a waiting room. A restart unlocks rooms (ADR 0003) |
+| Medium | Noise-suppression toggle and background blur | Blur via on-device segmentation (e.g. MediaPipe) on a canvas or insertable stream; CPU-heavy, so opt-in | Done. Blur uses the browser's own effect where available |
+| Medium | Local recording with a consent banner | `MediaRecorder`; everyone is told when recording starts and stops | Done. The lobby also says so |
+| Low | File sharing in chat | `RTCDataChannel` peer to peer, or uploads with size limits | Done, peer to peer, up to 50 MB |
+| Low | Live captions | The Web Speech API where available (Chromium), as a progressive enhancement | Done, opt-in per speaker |
 
 ### Phase 5: Operate and scale (3–5 days, plus an SFU if needed)
 
 **5.1 Deployment as code**
-- [ ] `render.yaml`, or a multi-stage `Dockerfile` that doesn't run as root.
-- [ ] The health-check path configured on the platform.
-- [ ] Documented environment variables, and a pinned Node LTS version.
-- [ ] A paid instance (or another host), so the app never cold-starts.
+- [x] `render.yaml`, or a multi-stage `Dockerfile` that doesn't run as root.
+- [x] The health-check path configured on the platform.
+- [x] Documented environment variables, and a pinned Node LTS version.
+- [x] A paid instance (or another host), so the app never cold-starts. *(`render.yaml` asks for a paid plan.)*
 
 **5.2 Observability**
-- [ ] Structured logs with no personal data.
-- [ ] Metrics: active rooms and participants, join success rate, time to first remote video, ICE failure rate, TURN usage.
-- [ ] Client and server error tracking (e.g. Sentry).
-- [ ] An uptime check on `/healthz`.
+- [x] Structured logs with no personal data.
+- [x] Metrics: active rooms and participants, join success rate, time to first remote video, ICE failure rate, TURN usage.
+- [x] Client and server error tracking (e.g. Sentry). *(Self-hosted: browser errors and CSP reports go to the logs and `/metrics`, so nothing is sent to a third party.)*
+- [ ] An uptime check on `/healthz`. *(Owner: point an uptime monitor at `/healthz`. Render's own health check already uses it.)*
 
 **5.3 Horizontal scaling (only when needed)**
-- [ ] The Socket.IO Redis adapter, sticky sessions, and the room registry in Redis.
+- [ ] The Socket.IO Redis adapter, sticky sessions, and the room registry in Redis. *(Not built. See ADR 0003.)*
 
 **5.4 Larger rooms**
-- [ ] An SFU (LiveKit or mediasoup) with simulcast. Keep the mesh for small rooms if it's cheaper.
+- [ ] An SFU (LiveKit or mediasoup) with simulcast. Keep the mesh for small rooms if it's cheaper. *(Not built. See ADR 0003.)*
 
 **5.5 Security operations**
-- [ ] HSTS, once the site is confirmed HTTPS-only.
-- [ ] CSP violation reporting.
-- [ ] Secrets kept only in the platform's environment store.
-- [ ] A dependency review every quarter.
+- [x] HSTS, once the site is confirmed HTTPS-only.
+- [x] CSP violation reporting.
+- [x] Secrets kept only in the platform's environment store.
+- [ ] A dependency review every quarter. *(Owner: an ongoing process. Dependabot already opens weekly update PRs.)*
 
 ---
 

@@ -104,3 +104,20 @@ test("each kind of message is rate limited", async () => {
   assert.ok(limited >= 4, `expected some messages to be dropped, got ${limited}`);
   assert.equal((await received).length, 15 - limited);
 });
+
+test("names, chat and room IDs never reach the logs", async () => {
+  const room = `private-${uniqueRoom()}`;
+  const alice = await app.client();
+  const bob = await app.client();
+  await joinRoom(alice, room, "Alice Unlikelyname");
+  await joinRoom(bob, room, "Bob Unlikelyname");
+  await ack(alice, "chat:send", { text: "a very private message" });
+  await ack(alice, "chat:typing", { typing: true });
+  await ack(bob, "room:leave");
+  // Logs are captured at the most verbose level, so this covers debug too.
+  const logs = app.logs.join("\n");
+  assert.ok(app.logs.length > 0);
+  for (const secret of ["Unlikelyname", "a very private message", room]) {
+    assert.doesNotMatch(logs, new RegExp(secret), secret);
+  }
+});
