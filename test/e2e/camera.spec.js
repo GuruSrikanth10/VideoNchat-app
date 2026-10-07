@@ -1,7 +1,9 @@
 const { test, expect, joinMeeting, nameField } = require("./support");
 
-// A phone: a coarse pointer, a front and a back camera. The fake camera
-// has no facing mode, so requests for one are recorded and dropped.
+// A phone: a coarse pointer, and a front and a back camera. Requests for a
+// facing mode are recorded and dropped (the fake camera can't honour them),
+// and the camera then reports the mode asked for, as a phone's would. (Left
+// alone, Firefox's fake camera says it faces the environment.)
 const phoneWithTwoCameras = `(() => {
   const matchMedia = window.matchMedia.bind(window);
   window.matchMedia = (query) =>
@@ -17,13 +19,20 @@ const phoneWithTwoCameras = `(() => {
   };
   const getUserMedia = devices.getUserMedia.bind(devices);
   window.__facing = [];
-  devices.getUserMedia = (constraints) => {
+  devices.getUserMedia = async (constraints) => {
+    let facing = "user";
     if (constraints.video?.facingMode) {
-      window.__facing.push(constraints.video.facingMode);
       const { facingMode, ...video } = constraints.video;
+      window.__facing.push(facingMode);
+      facing = facingMode.exact ?? facingMode.ideal ?? facingMode;
       constraints = { ...constraints, video };
     }
-    return getUserMedia(constraints);
+    const stream = await getUserMedia(constraints);
+    for (const track of stream.getVideoTracks()) {
+      const settings = track.getSettings.bind(track);
+      track.getSettings = () => ({ ...settings(), facingMode: facing });
+    }
+    return stream;
   };
 })()`;
 
