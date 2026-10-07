@@ -8,6 +8,9 @@ const myVideo = document.createElement("video");
 myVideo.muted = true;
 
 var user;
+// Proves to the server that a re-join after a reconnect comes from this tab.
+const tabSecret = crypto.randomUUID();
+
 Swal.fire({
   title: "Enter your Name",
   input: "text",
@@ -106,7 +109,7 @@ Swal.fire({
 
   peer.on("open", (id) => {
     currentUser = id;
-    socket.emit("join-room", ROOM_ID, id, user);
+    socket.emit("join-room", ROOM_ID, id, user, tabSecret);
   });
 
   const addVideoStream = (video, stream) => {
@@ -323,9 +326,9 @@ Swal.fire({
     messages.append(item);
   }
 
-  socket.on("createMessage", (message, userName) => {
+  socket.on("createMessage", (message, userName, senderId) => {
     feedback.textContent = "";
-    appendMessage(message, userName, userName === user);
+    appendMessage(message, userName, senderId === currentUser);
 
     //For scrolling to bottom
     var chatWindow = document.querySelector(".main__chat_window");

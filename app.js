@@ -9,13 +9,9 @@ const server = app.listen(port, () =>
 );
 
 //****************************//SOCKET AND PEER SETUP //****************************//
-const io = require("socket.io")(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-});
+// The page is served from this same origin, so no CORS setup is needed.
+// Payloads are small text messages, so keep the buffer far below the 1 MB default.
+const io = require("socket.io")(server, { maxHttpBufferSize: 64 * 1024 });
 
 const { ExpressPeerServer } = require("peer");
 const { WebSocketServer } = require("ws");
@@ -48,40 +44,68 @@ app.get("/leave", (req, res) => {
   res.render("leave");
 });
 
-app.get("/:room", (req, res) => {
+// Room IDs are generated UUIDs; custom names are allowed but restricted to
+// letters, digits, "_" and "-". Anything else (e.g. /favicon.ico) is a 404.
+const TOKEN = /^[\w-]{1,64}$/;
+
+app.get("/:room", (req, res, next) => {
+  if (!TOKEN.test(req.params.room)) return next();
   res.render("room", { roomId: req.params.room });
 });
 
 //****************************//SOCKET IO CONNECTION //****************************//
 
+// Room IDs, PeerJS IDs and per-tab secrets all use the same token format.
+const isToken = (value) => typeof value === "string" && TOKEN.test(value);
+const clean = (value, max) =>
+  typeof value === "string" ? value.trim().slice(0, max) : "";
+
+const findByPeerId = (roomId, peerId) =>
+  [...(io.sockets.adapter.rooms.get(roomId) ?? [])]
+    .map((id) => io.sockets.sockets.get(id))
+    .find((s) => s?.data.peerId === peerId);
+
+// Handlers are registered once per connection; the room and identity live in
+// socket.data, so repeated join-room events can't stack duplicate handlers.
 io.on("connection", (socket) => {
-  console.log("A user connected");
+  socket.on("join-room", (roomId, peerId, name, secret) => {
+    if (socket.data.roomId || ![roomId, peerId, secret].every(isToken)) return;
 
-  socket.on("join-room", (roomId, userId, userName) => {
-    console.log(`${userName} joined rooom ${roomId}`);
+    // A peer ID that is already in the room may only be reclaimed by the tab
+    // that owns it (same secret), e.g. after a reconnect. Then the stale socket
+    // is replaced; anyone else is refused.
+    const holder = findByPeerId(roomId, peerId);
+    if (holder && holder.data.secret !== secret) return;
+    holder?.disconnect(true);
+
+    socket.data = { roomId, peerId, secret, name: clean(name, 40) || "Guest" };
     socket.join(roomId);
-    socket.broadcast.to(roomId).emit("user-connected", userId, userName);
+    socket.to(roomId).emit("user-connected", peerId, socket.data.name);
+  });
 
-    socket.on("message", (message) => {
-      // Only relay non-empty strings of a sane length.
-      if (typeof message !== "string") return;
-      const text = message.trim().slice(0, 1000);
-      if (text) io.to(roomId).emit("createMessage", text, userName);
-    });
+  socket.on("message", (message) => {
+    const { roomId, name, peerId } = socket.data;
+    const text = clean(message, 1000);
+    if (roomId && text) io.to(roomId).emit("createMessage", text, name, peerId);
+  });
 
-    socket.on("typing", () => {
-      console.log(`${userName} is typing`);
-      socket.broadcast.to(roomId).emit("typing", userName);
-    });
+  socket.on("typing", () => {
+    const { roomId, name } = socket.data;
+    if (roomId) socket.to(roomId).emit("typing", name);
+  });
 
-    socket.on("stoppedTyping", () => {
-      console.log(`${userName} stopped typing`);
-      socket.broadcast.to(roomId).emit("stoppedTyping");
-    });
+  socket.on("stoppedTyping", () => {
+    const { roomId, name } = socket.data;
+    if (roomId) socket.to(roomId).emit("stoppedTyping", name);
+  });
 
-    socket.on("disconnect", () => {
-      console.log(`${userName} disconnected`);
-      socket.broadcast.to(roomId).emit("user-disconnected", userId);
-    });
+  // Lets clients measure their real round-trip time to the server.
+  socket.on("net:ping", (ack) => {
+    if (typeof ack === "function") ack();
+  });
+
+  socket.on("disconnect", () => {
+    const { roomId, peerId } = socket.data;
+    if (roomId) socket.to(roomId).emit("user-disconnected", peerId);
   });
 });
