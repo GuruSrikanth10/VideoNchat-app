@@ -557,6 +557,11 @@ button:disabled {
   transition: outline-color 0.2s;
 }
 
+/* A raised hand rings the tile, unless they're speaking right now. */
+.tile[data-hand="true"] {
+  outline-color: var(--warning);
+}
+
 .tile[data-speaking="true"] {
   outline-color: var(--success);
 }
@@ -668,6 +673,41 @@ button:disabled {
   white-space: nowrap;
 }
 
+.tile__hand {
+  width: 16px;
+  height: 16px;
+  color: var(--warning);
+}
+
+/* Reactions rise from the bottom of the sender's tile and fade away. */
+.tile__reaction {
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  z-index: 2;
+  font-size: clamp(28px, 12cqmin, 56px);
+  line-height: 1;
+  pointer-events: none;
+  animation: reaction-rise 3s ease-out forwards;
+}
+
+@keyframes reaction-rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 20px) scale(0.6);
+  }
+
+  15% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--drift, 0px) / 3), 0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--drift, 0px)), -160px) scale(1);
+  }
+}
+
 .tile__mic-off {
   width: 16px;
   height: 16px;
@@ -750,6 +790,10 @@ button:disabled {
 .message__text a {
   color: inherit;
   text-decoration: underline;
+}
+
+.people__invite {
+  margin: 12px 12px 0;
 }
 
 .people {
@@ -977,6 +1021,84 @@ button:disabled {
   from {
     opacity: 0;
   }
+}
+
+.badge--hand {
+  background: var(--warning);
+  color: #1b1b1b;
+}
+
+/* ------------------------------------------------------------ reactions */
+
+.reactions {
+  position: fixed;
+  inset: auto auto var(--menu-bottom, 96px) var(--menu-left, 50%);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 16px);
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+
+/* Only while open: a display value would otherwise override the
+   browser's hiding of a closed popover. The second rule is for browsers
+   without the Popover API, where it is shown and hidden with [hidden]. */
+.reactions:popover-open {
+  display: flex;
+}
+
+.reactions:not([popover], [hidden]) {
+  display: flex;
+}
+
+.reactions__hand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font: inherit;
+  font-weight: 600;
+}
+
+.reactions__hand:hover {
+  background: var(--surface-3);
+}
+
+.reactions__hand[data-raised="true"] {
+  background: var(--warning);
+  color: #1b1b1b;
+}
+
+.reactions__emoji {
+  display: flex;
+  gap: 4px;
+}
+
+.reactions__button {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.reactions__button:hover {
+  background: var(--surface-2);
+  transform: scale(1.15);
 }
 
 .control--danger {
@@ -1298,8 +1420,10 @@ kbd {
     --controls-height: 68px;
   }
 
-  /* The participant count opens People, which makes room in the controls. */
-  #people-toggle {
+  /* The participant count opens People, and People has the Invite
+     button, which makes room in the controls. */
+  #people-toggle,
+  #invite {
     display: none;
   }
 
@@ -1379,5 +1503,23 @@ kbd {
   *::before,
   *::after {
     transition: none !important;
+  }
+
+  /* Reactions appear and fade in place instead of flying. */
+  .tile__reaction {
+    animation-name: fade-out;
+  }
+}
+
+@keyframes fade-out {
+  0%,
+  70% {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%);
   }
 }

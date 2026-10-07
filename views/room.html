@@ -184,6 +184,10 @@
             <svg data-icon="x"></svg>
           </button>
         </header>
+        <button id="people-invite" class="btn btn--secondary people__invite" type="button">
+          <svg data-icon="user-plus"></svg>
+          Invite people
+        </button>
         <ul id="people-list" class="people"></ul>
       </aside>
     </main>
@@ -201,6 +205,11 @@
         <button id="share" class="control" type="button">
           <svg data-icon="monitor-up"></svg>
           <span class="control__label">Present</span>
+        </button>
+        <button id="react" class="control" type="button" popovertarget="reactions">
+          <svg data-icon="smile"></svg>
+          <span class="control__label">React</span>
+          <span id="hand-badge" class="badge badge--hand" hidden>✋</span>
         </button>
       </div>
       <div class="controls__group">
@@ -239,6 +248,19 @@
         <span class="control__label">Leave</span>
       </button>
     </nav>
+
+    <div id="reactions" class="reactions" popover aria-label="Reactions">
+      <button id="raise-hand" class="reactions__hand" type="button">
+        <svg data-icon="hand"></svg>
+        <span class="reactions__hand-label">Raise hand</span>
+      </button>
+      <div
+        id="reaction-buttons"
+        class="reactions__emoji"
+        role="group"
+        aria-label="Send a reaction"
+      ></div>
+    </div>
 
     <dialog id="settings-dialog" class="dialog" aria-labelledby="settings-title">
       <form method="dialog">

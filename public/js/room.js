@@ -8,6 +8,7 @@ import { local, session } from "./lib/storage.js";
 import { Tiles } from "./ui/tiles.js";
 import { Chat } from "./ui/chat.js";
 import { People } from "./ui/people.js";
+import { ReactionMenu } from "./ui/reactions.js";
 import { toast, announce } from "./ui/toast.js";
 import { confirmDialog, choiceDialog } from "./ui/dialog.js";
 import { hydrateIcons, setIcon } from "./ui/icons.js";
@@ -48,6 +49,7 @@ let name = "";
 let joined = false;
 let leaving = false;
 let callStartedAt = 0;
+let handRaisedAt = null; // when your hand went up (server time), or null
 
 const chat = new Chat({
   list: $("messages"),
@@ -151,6 +153,8 @@ async function join() {
 
   joined = true;
   sendMediaState();
+  // A new identity starts with its hand down; put it back up if it was.
+  if (!resumed && handRaisedAt) setHand(true);
   hideBanner();
   updateCount();
   return true;
@@ -206,6 +210,7 @@ function addParticipant(participant, { quiet = false } = {}) {
     name: participant.name,
     audio: participant.audio,
     video: participant.video,
+    hand: participant.hand,
   });
   showRemoteMedia(participant.id);
   if (!known && !quiet) toast(strings.call.joined(participant.name));
@@ -221,8 +226,10 @@ function updateParticipant(participant) {
     name: participant.name,
     audio: participant.audio,
     video: participant.video,
+    hand: participant.hand,
   });
   if (participant.screen && !previous.screen) toast(strings.call.presenting(participant.name));
+  if (participant.hand && !previous.hand) toast(strings.hands.raised(participant.name));
   showRemoteMedia(participant.id);
   renderPeople();
 }
@@ -268,6 +275,7 @@ function renderPeople() {
       audio: media.micEnabled && Boolean(media.mic),
       video: media.cameraEnabled && Boolean(media.camera),
       screen: share.active,
+      hand: handRaisedAt,
     },
     ...participants.values(),
   ]);
@@ -288,6 +296,12 @@ socket.on("participant:updated", (participant) => updateParticipant(participant)
 socket.on("participant:left", ({ id }) => removeParticipant(id));
 socket.on("rtc:signal", (signal) => mesh?.handleSignal(signal));
 socket.on("chat:message", (message) => chat.add(message));
+socket.on("reaction", ({ from, emoji }) => {
+  const sender = participants.get(from);
+  if (!sender) return;
+  tiles.react(from, emoji);
+  announce(strings.reactions.sent(sender.name, strings.reactions.labels[emoji] ?? emoji));
+});
 socket.on("chat:typing", ({ from, name: typer, typing }) => chat.setTyping(from, typer, typing));
 
 socket.on("server:restarting", () => {
@@ -484,6 +498,35 @@ $("share").addEventListener("click", async () => {
   }
 });
 
+// --------------------------------------------------- hands and reactions
+
+const reactionMenu = new ReactionMenu({
+  menu: $("reactions"),
+  toggle: $("react"),
+  hand: $("raise-hand"),
+  buttons: $("reaction-buttons"),
+  onReact: sendReaction,
+  onHand: () => setHand(!handRaisedAt),
+});
+
+async function sendReaction(emoji) {
+  tiles.react("self", emoji);
+  const reply = await request(socket, "reaction:send", { emoji });
+  if (!reply.ok) toast(describeError(reply.error), { tone: "warning" });
+}
+
+async function setHand(raised) {
+  const reply = await request(socket, "hand:set", { raised });
+  if (!reply.ok) return toast(describeError(reply.error), { tone: "warning" });
+  const changed = Boolean(handRaisedAt) !== raised;
+  handRaisedAt = reply.hand;
+  reactionMenu.setHand(raised);
+  $("hand-badge").hidden = !raised;
+  tiles.upsert("self", { hand: raised });
+  renderPeople();
+  if (changed) announce(raised ? strings.hands.yoursUp : strings.hands.yoursDown);
+}
+
 // Side panels (chat, people): at most one is open at a time.
 // People has two toggles: its control button and the participant count.
 const PANELS = {
@@ -529,6 +572,7 @@ bindShortcuts(document, {
   camera: async () => announceChange(await toggleCamera()),
   chat: () => inCall() && !dialogOpen() && togglePanel("chat"),
   people: () => inCall() && !dialogOpen() && togglePanel("people"),
+  hand: () => inCall() && !dialogOpen() && setHand(!handRaisedAt),
   help: () => {
     const help = $("shortcuts-dialog");
     if (help.open) help.close();
@@ -585,6 +629,7 @@ for (const [id, action] of [
 for (const [id, text] of [
   ["chat-toggle", strings.controls.chatTooltip],
   ["people-toggle", strings.controls.peopleTooltip],
+  ["react", strings.reactions.tooltip],
   ["invite", strings.controls.inviteTooltip],
   ["settings", strings.controls.settingsTooltip],
   ["leave", strings.controls.leaveTooltip],
@@ -613,7 +658,9 @@ $("messages").addEventListener("chat:new", ({ detail }) => {
   if (!detail.mine && !visible) $("chat-unread").hidden = false;
 });
 
-$("invite").addEventListener("click", async () => {
+for (const id of ["invite", "people-invite"]) $(id).addEventListener("click", invite);
+
+async function invite() {
   const url = location.href;
   if (navigator.share && matchMedia("(pointer: coarse)").matches) {
     try {
@@ -629,7 +676,7 @@ $("invite").addEventListener("click", async () => {
   } catch {
     toast(strings.invite.shareThis(url), { duration: 10000 });
   }
-});
+}
 
 $("leave").addEventListener("click", async () => {
   const ok = await confirmDialog({

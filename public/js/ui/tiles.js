@@ -50,7 +50,10 @@ export class Tiles {
 
   // Creates or updates a participant's tile. For your own tile, `mirrored`
   // flips the video like a mirror and `canFlip` offers a camera switch.
-  upsert(id, { name, self = false, stream, audio, video, quality, stats, mirrored, canFlip }) {
+  upsert(
+    id,
+    { name, self = false, stream, audio, video, hand, quality, stats, mirrored, canFlip },
+  ) {
     let tile = this.#tiles.get(id);
     if (!tile) {
       tile = this.#create(id, { self });
@@ -76,6 +79,10 @@ export class Tiles {
       tile.micState.toggleAttribute("hidden", audio);
     }
     if (video !== undefined) tile.root.dataset.videoOff = String(!video);
+    if (hand !== undefined) {
+      tile.root.dataset.hand = String(Boolean(hand));
+      tile.handState.toggleAttribute("hidden", !hand);
+    }
     if (mirrored !== undefined) tile.video.classList.toggle("tile__video--mirrored", mirrored);
     if (canFlip !== undefined && tile.buttons.flip) tile.buttons.flip.hidden = !canFlip;
     if (quality !== undefined) {
@@ -112,6 +119,22 @@ export class Tiles {
 
   has(id) {
     return this.#tiles.has(id);
+  }
+
+  // A reaction floats up from the bottom of the sender's tile.
+  react(id, emoji) {
+    const tile = this.#tiles.get(id);
+    if (!tile) return;
+    const bubble = document.createElement("span");
+    bubble.className = "tile__reaction";
+    bubble.setAttribute("aria-hidden", "true");
+    bubble.textContent = emoji;
+    // A little sideways drift, so a burst doesn't stack up in one column.
+    bubble.style.setProperty("--drift", `${Math.round(Math.random() * 40 - 20)}px`);
+    tile.root.append(bubble);
+    const done = () => bubble.remove();
+    bubble.addEventListener("animationend", done);
+    setTimeout(done, 4000); // in case animations are off
   }
 
   setSpeaking(id, speaking) {
@@ -181,11 +204,13 @@ export class Tiles {
 
     const caption = document.createElement("figcaption");
     caption.className = "tile__caption";
+    const handState = icon("hand", "icon tile__hand");
+    handState.setAttribute("hidden", "");
     const micState = icon("mic-off", "icon tile__mic-off");
     micState.setAttribute("hidden", "");
     const label = document.createElement("span");
     label.className = "tile__name";
-    caption.append(micState, label);
+    caption.append(handState, micState, label);
 
     const quality = document.createElement("span");
     quality.className = "tile__quality";
@@ -220,7 +245,17 @@ export class Tiles {
     }
 
     root.append(video, avatar, caption, quality, actions);
-    const tile = { root, video, initials: initialsBadge, label, micState, quality, name: "", self };
+    const tile = {
+      root,
+      video,
+      initials: initialsBadge,
+      label,
+      micState,
+      handState,
+      quality,
+      name: "",
+      self,
+    };
     tile.buttons = buttons;
     return tile;
   }

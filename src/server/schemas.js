@@ -12,6 +12,9 @@ const MAX_NAME = 40;
 const MAX_MESSAGE = 1000;
 const MAX_SDP = 32 * 1024;
 
+// The reactions anyone can send; nothing else is relayed.
+const REACTIONS = ["👍", "❤️", "😂", "😮", "👏", "🎉"];
+
 function parseJoin(payload) {
   if (!isObject(payload)) return fail("invalid-payload");
   const { roomId, name, session } = payload;
@@ -43,6 +46,16 @@ function parseMediaState(payload) {
     value[key] = payload[key];
   }
   return Object.keys(value).length ? ok(value) : fail("invalid-payload");
+}
+
+function parseHand(payload) {
+  if (!isObject(payload) || typeof payload.raised !== "boolean") return fail("invalid-payload");
+  return ok({ raised: payload.raised });
+}
+
+function parseReaction(payload) {
+  if (!isObject(payload) || !REACTIONS.includes(payload.emoji)) return fail("invalid-payload");
+  return ok({ emoji: payload.emoji });
 }
 
 function parseDescription(description) {
@@ -90,7 +103,10 @@ module.exports = {
   parseChat,
   parseTyping,
   parseMediaState,
+  parseHand,
+  parseReaction,
   parseSignal,
+  REACTIONS,
   MAX_NAME,
   MAX_MESSAGE,
 };

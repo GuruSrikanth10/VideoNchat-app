@@ -28,7 +28,7 @@ test("newcomers learn who is there, and everyone learns about the newcomer", asy
   const reply = await joinRoom(bob, room, "Bob");
 
   assert.deepEqual(reply.participants, [
-    { id: first.self.id, name: "Alice", audio: false, video: false, screen: false },
+    { id: first.self.id, name: "Alice", audio: false, video: false, screen: false, hand: null },
   ]);
   const [joined] = await announced;
   assert.equal(joined.id, reply.self.id);

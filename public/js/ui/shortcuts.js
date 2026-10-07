@@ -11,6 +11,7 @@ export const SHORTCUTS = [
   { action: "camera", key: "e", combo: "mod", description: strings.shortcuts.camera },
   { action: "chat", key: "c", combo: "panel", description: strings.shortcuts.chat },
   { action: "people", key: "p", combo: "panel", description: strings.shortcuts.people },
+  { action: "hand", key: "h", combo: "panel", description: strings.shortcuts.hand },
   { action: "help", key: "/", combo: "mod", description: strings.shortcuts.help },
 ];
 

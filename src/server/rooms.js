@@ -45,6 +45,9 @@ class RoomRegistry {
       audio: false,
       video: false,
       screen: false,
+      // When their hand went up (null when it's down), so hands are taken
+      // in order.
+      hand: null,
       joinedAt: Date.now(),
     };
     room.participants.set(participant.id, participant);
@@ -93,6 +96,13 @@ class RoomRegistry {
 }
 
 // What other participants may know about someone.
-const publicView = ({ id, name, audio, video, screen }) => ({ id, name, audio, video, screen });
+const publicView = ({ id, name, audio, video, screen, hand }) => ({
+  id,
+  name,
+  audio,
+  video,
+  screen,
+  hand,
+});
 
 module.exports = { RoomRegistry, publicView, HISTORY_SIZE };

@@ -25,8 +25,8 @@ never sees them.
 | --- | --- | --- | --- |
 | `room:join` | client → server | `{ roomId, name, session? }` | `{ ok, resumed, self, participants, history, maxRoomSize, iceServers }` |
 | `room:leave` | client → server | – | `{ ok }`; others get `participant:left` at once |
-| `participant:joined` | server → client | `{ id, name, audio, video, screen }` | sent to everyone else in the room |
-| `participant:updated` | server → client | `{ id, name, audio, video, screen }` | after `media:state` |
+| `participant:joined` | server → client | `{ id, name, audio, video, screen, hand }` | sent to everyone else in the room |
+| `participant:updated` | server → client | `{ id, name, audio, video, screen, hand }` | after `media:state` or `hand:set` |
 | `participant:left` | server → client | `{ id }` | after `room:leave`, or a disconnect that outlasts the grace period |
 | `server:restarting` | server → client | `{ inSeconds }` | on `SIGTERM`; clients show "reconnecting" and rejoin on their own |
 
@@ -69,6 +69,19 @@ The last 50 messages of a room are kept in memory and sent to newcomers in
 | Event | Direction | Payload | Reply / notes |
 | --- | --- | --- | --- |
 | `media:state` | client → server | any of `{ audio, video, screen }` (booleans) | `{ ok }`; relayed as `participant:updated` |
+
+## Raised hands and reactions
+
+| Event | Direction | Payload | Reply / notes |
+| --- | --- | --- | --- |
+| `hand:set` | client → server | `{ raised }` (boolean) | `{ ok, hand }`; relayed as `participant:updated` |
+| `reaction:send` | client → server | `{ emoji }` | `{ ok }`; relayed to the others as `reaction` |
+| `reaction` | server → client | `{ from, emoji }` | not stored; late joiners don't see it |
+
+- `hand` is when the hand went up (server time in ms), or `null`. Raising a
+  hand that is already up keeps its time, so hands are taken in order.
+- `emoji` is one of 👍 ❤️ 😂 😮 👏 🎉; anything else is `invalid-payload`.
+  Reactions are limited to a burst of 10, then 2 a second.
 
 ## WebRTC signalling
 

@@ -154,6 +154,30 @@ function attachRealtime({ io, rooms, config, logger }) {
       reply({ ok: true });
     });
 
+    handle("hand:set", (payload, reply) => {
+      const participant = current();
+      if (!participant) return reply({ ok: false, error: "not-joined" });
+      const parsed = schemas.parseHand(payload);
+      if (!parsed.ok) return reply(parsed);
+      // Raising an already raised hand keeps its place in the queue.
+      participant.hand = parsed.value.raised ? (participant.hand ?? Date.now()) : null;
+      socket.to(socket.data.roomId).emit("participant:updated", publicView(participant));
+      reply({ ok: true, hand: participant.hand });
+    });
+
+    // Reactions are fleeting: relayed, never stored.
+    handle("reaction:send", (payload, reply) => {
+      const participant = current();
+      if (!participant) return reply({ ok: false, error: "not-joined" });
+      const parsed = schemas.parseReaction(payload);
+      if (!parsed.ok) return reply(parsed);
+      socket.to(socket.data.roomId).emit("reaction", {
+        from: participant.id,
+        emoji: parsed.value.emoji,
+      });
+      reply({ ok: true });
+    });
+
     // Relays WebRTC offers, answers and ICE candidates to one participant
     // in the same room, stamped with the sender's ID.
     handle("rtc:signal", (payload, reply) => {

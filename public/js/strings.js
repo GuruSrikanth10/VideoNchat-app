@@ -140,7 +140,34 @@ export const strings = {
     cancel: "Cancel",
   },
 
+  hands: {
+    raise: "Raise hand",
+    lower: "Lower hand",
+    raised: (name) => `${name} raised a hand`,
+    yoursUp: "Your hand is raised",
+    yoursDown: "Your hand is lowered",
+    state: "hand raised",
+  },
+
+  reactions: {
+    react: "React",
+    tooltip: "Send a reaction or raise your hand",
+    menu: "Reactions",
+    group: "Send a reaction",
+    labels: {
+      "👍": "thumbs up",
+      "❤️": "heart",
+      "😂": "laughter",
+      "😮": "surprise",
+      "👏": "applause",
+      "🎉": "celebration",
+    },
+    send: (label) => `Send ${label}`,
+    sent: (name, label) => `${name} reacted with ${label}`,
+  },
+
   shortcuts: {
+    hand: "Raise or lower your hand",
     mic: "Turn your microphone on or off",
     camera: "Turn your camera on or off",
     chat: "Open or close the chat",
@@ -174,6 +201,7 @@ export const strings = {
   },
 
   people: {
+    invite: "Invite people",
     presenting: "presenting",
     cameraOff: "camera off",
     muted: "muted",
