@@ -6,20 +6,27 @@ const { createLogger } = require("./logger");
 const { createHttpApp, addPageRoutes } = require("./http");
 const { mountPeerServer } = require("./peerjs");
 const { attachLegacyProtocol } = require("./legacy-socket");
+const { RoomRegistry } = require("./rooms");
+const { attachRealtime, isAllowedOrigin } = require("./realtime");
 
 // Builds the app without listening, so tests can start it on any port.
 function createServer({ config = loadConfig(), logger = createLogger(config) } = {}) {
   let io;
+  const rooms = new RoomRegistry({ maxRoomSize: config.maxRoomSize });
   const health = () => ({
     uptimeSeconds: Math.round(process.uptime()),
     connections: io?.engine.clientsCount ?? 0,
+    ...rooms.stats(),
   });
   const app = createHttpApp({ config, logger, health });
   const server = http.createServer(app);
 
   // The page is served from this same origin, so no CORS setup is needed.
   // Payloads are small, so keep the buffer far below the 1 MB default.
-  io = new Server(server, { maxHttpBufferSize: 64 * 1024 });
+  io = new Server(server, {
+    maxHttpBufferSize: 64 * 1024,
+    allowRequest: (req, callback) => callback(null, isAllowedOrigin(req, config)),
+  });
 
   // Lets clients measure their real round-trip time to the server.
   io.on("connection", (socket) => {
@@ -30,9 +37,10 @@ function createServer({ config = loadConfig(), logger = createLogger(config) } =
 
   mountPeerServer(app, server);
   attachLegacyProtocol(io);
+  attachRealtime({ io, rooms, config, logger });
   addPageRoutes(app, { logger });
 
-  return { app, server, io, config, logger };
+  return { app, server, io, rooms, config, logger };
 }
 
 function start() {

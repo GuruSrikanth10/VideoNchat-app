@@ -79,3 +79,13 @@ async function join(socket, room, peerId, name, tabSecret = secret()) {
 }
 
 module.exports = { startTestServer, nextEvent, collect, uniqueRoom, join, secret };
+
+// Protocol v1: joins and resolves with the server's acknowledgement.
+function joinRoom(socket, roomId, name, session) {
+  return socket.timeout(2000).emitWithAck("room:join", { roomId, name, session });
+}
+
+const ack = (socket, event, payload) => socket.timeout(2000).emitWithAck(event, payload);
+
+module.exports.joinRoom = joinRoom;
+module.exports.ack = ack;
