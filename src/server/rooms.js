@@ -64,6 +64,8 @@ class RoomRegistry {
       // in order.
       hand: null,
       host: room.participants.size === 0,
+      // Recording the meeting on their device; everyone is told.
+      recording: false,
       joinedAt: now,
     };
     room.participants.set(participant.id, participant);
@@ -169,7 +171,7 @@ class RoomRegistry {
 }
 
 // What other participants may know about someone.
-const publicView = ({ id, name, audio, video, screen, hand, host }) => ({
+const publicView = ({ id, name, audio, video, screen, hand, host, recording }) => ({
   id,
   name,
   audio,
@@ -177,6 +179,7 @@ const publicView = ({ id, name, audio, video, screen, hand, host }) => ({
   screen,
   hand,
   host,
+  recording,
 });
 
 module.exports = { RoomRegistry, publicView, HISTORY_SIZE, MAX_KNOCKS, TICKET_TTL_MS };

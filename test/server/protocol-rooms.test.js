@@ -36,6 +36,7 @@ test("newcomers learn who is there, and everyone learns about the newcomer", asy
       screen: false,
       hand: null,
       host: true,
+      recording: false,
     },
   ]);
   const [joined] = await announced;

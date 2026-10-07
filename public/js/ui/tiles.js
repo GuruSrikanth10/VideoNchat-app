@@ -117,6 +117,18 @@ export class Tiles {
     this.remove(`screen:${id}`);
   }
 
+  // What a recording draws: every tile, screens first.
+  snapshot() {
+    return [...this.#tiles.values()]
+      .map((tile) => ({
+        video: tile.video,
+        name: tile.name,
+        videoOff: tile.root.dataset.videoOff === "true",
+        screen: tile.root.classList.contains("tile--screen"),
+      }))
+      .sort((a, b) => Number(b.screen) - Number(a.screen));
+  }
+
   has(id) {
     return this.#tiles.has(id);
   }

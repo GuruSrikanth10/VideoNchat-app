@@ -27,11 +27,19 @@ test("the lobby can see how many people are in a room without joining", async ()
     count: 0,
     full: false,
     locked: false,
+    recording: false,
     maxRoomSize: 2,
   });
   await joinRoom(await app.client(), room, "One");
   await joinRoom(await app.client(), room, "Two");
-  assert.deepEqual(await peek(), { ok: true, count: 2, full: true, locked: false, maxRoomSize: 2 });
+  assert.deepEqual(await peek(), {
+    ok: true,
+    count: 2,
+    full: true,
+    locked: false,
+    recording: false,
+    maxRoomSize: 2,
+  });
   const bad = await lobby.timeout(2000).emitWithAck("room:peek", { roomId: "../x" });
   assert.equal(bad.error, "invalid-room");
 });

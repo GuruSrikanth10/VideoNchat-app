@@ -25,8 +25,8 @@ never sees them.
 | --- | --- | --- | --- |
 | `room:join` | client → server | `{ roomId, name, session?, ticket? }` | `{ ok, resumed, self, participants, history, maxRoomSize, locked, knocks, iceServers }` |
 | `room:leave` | client → server | – | `{ ok }`; others get `participant:left` at once |
-| `participant:joined` | server → client | `{ id, name, audio, video, screen, hand, host }` | sent to everyone else in the room |
-| `participant:updated` | server → client | `{ id, name, audio, video, screen, hand, host }` | after `media:state` or `hand:set`; to everyone, the person included, after `host:lower-hand` or a host change |
+| `participant:joined` | server → client | `{ id, name, audio, video, screen, hand, host, recording }` | sent to everyone else in the room |
+| `participant:updated` | server → client | `{ id, name, audio, video, screen, hand, host, recording }` | after `media:state`, `hand:set` or `recording:set`; to everyone, the person included, after `host:lower-hand` or a host change |
 | `participant:left` | server → client | `{ id }` | after `room:leave`, or a disconnect that outlasts the grace period |
 | `server:restarting` | server → client | `{ inSeconds }` | on `SIGTERM`; clients show "reconnecting" and rejoin on their own |
 
@@ -100,6 +100,18 @@ to anyone else.
   first person back becomes host and can lock the room again. Keeping
   locks across restarts needs shared storage (see the plan's Phase 5).
 - `room:knock` is limited to 3 in a burst, then one every 10 seconds.
+
+## Recording
+
+| Event | Direction | Payload | Reply / notes |
+| --- | --- | --- | --- |
+| `recording:set` | client → server | `{ recording }` (boolean) | `{ ok }`; relayed as `participant:updated` |
+
+Recordings are made and saved on the recorder's own device; nothing is
+uploaded. The server's job is to make sure everyone knows: clients send
+`recording:set` before they start, `recording` is part of every
+participant view (so late joiners see it), and `room:peek` reports
+`recording` so the lobby can say so before anyone joins.
 
 ## Raised hands and reactions
 

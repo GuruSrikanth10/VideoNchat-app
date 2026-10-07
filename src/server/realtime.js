@@ -140,6 +140,8 @@ function attachRealtime({ io, rooms, config, logger }) {
         count,
         full: count >= rooms.maxRoomSize,
         locked: room?.locked ?? false,
+        // So people know before they join.
+        recording: [...(room?.participants.values() ?? [])].some((p) => p.recording),
         maxRoomSize: rooms.maxRoomSize,
       });
     });
@@ -289,6 +291,18 @@ function attachRealtime({ io, rooms, config, logger }) {
       participant.hand = parsed.value.raised ? (participant.hand ?? Date.now()) : null;
       socket.to(socket.data.roomId).emit("participant:updated", publicView(participant));
       reply({ ok: true, hand: participant.hand });
+    });
+
+    // Recording happens on the recorder's device. The server's part is to
+    // make sure everyone knows.
+    handle("recording:set", (payload, reply) => {
+      const participant = current();
+      if (!participant) return reply({ ok: false, error: "not-joined" });
+      const parsed = schemas.parseRecording(payload);
+      if (!parsed.ok) return reply(parsed);
+      participant.recording = parsed.value.recording;
+      socket.to(socket.data.roomId).emit("participant:updated", publicView(participant));
+      reply({ ok: true });
     });
 
     // Reactions are fleeting: relayed, never stored.

@@ -142,6 +142,28 @@ export const strings = {
     noiseFailed: "Noise suppression couldn't be changed.",
   },
 
+  recording: {
+    start: "Start recording",
+    stop: "Stop recording",
+    unsupported: "Your browser can't record meetings.",
+    failed: "Recording couldn't start.",
+    saved: "The recording was saved to your downloads.",
+    you: "You're recording this meeting.",
+    youAndOthers: (count) =>
+      plural(count, {
+        one: "You and 1 other person are recording this meeting.",
+        other: (n) => `You and ${n} other people are recording this meeting.`,
+      }),
+    others: (names) =>
+      names.length === 1
+        ? `${names[0]} is recording this meeting.`
+        : `${names.length} people are recording this meeting.`,
+    started: (name) => `${name} started recording`,
+    stopped: (name) => `${name} stopped recording`,
+    lobby: "This meeting is being recorded.",
+    fileName: (room, when) => `VideoNChat ${room} ${when}`,
+  },
+
   invite: {
     shareTitle: "Join my VideoNChat meeting",
     copied: "Invite link copied",

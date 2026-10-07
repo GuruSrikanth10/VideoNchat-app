@@ -86,6 +86,11 @@ function parseHand(payload) {
   return ok({ raised: payload.raised });
 }
 
+function parseRecording(payload) {
+  if (!isObject(payload) || typeof payload.recording !== "boolean") return fail("invalid-payload");
+  return ok({ recording: payload.recording });
+}
+
 function parseReaction(payload) {
   if (!isObject(payload) || !REACTIONS.includes(payload.emoji)) return fail("invalid-payload");
   return ok({ emoji: payload.emoji });
@@ -142,6 +147,7 @@ module.exports = {
   parseMediaState,
   parseHand,
   parseReaction,
+  parseRecording,
   parseSignal,
   REACTIONS,
   MAX_NAME,

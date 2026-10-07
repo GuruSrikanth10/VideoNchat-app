@@ -77,3 +77,24 @@ test("hands and reactions need you to be in a room", async () => {
   assert.equal((await ack(stranger, "hand:set", { raised: true })).error, "not-joined");
   assert.equal((await ack(stranger, "reaction:send", { emoji: "👍" })).error, "not-joined");
 });
+
+test("everyone is told who is recording, including late joiners and the lobby", async () => {
+  const { room, alice, bob, aliceId } = await pair();
+  const updated = nextEvent(bob, "participant:updated");
+  assert.deepEqual(await ack(alice, "recording:set", { recording: true }), { ok: true });
+  const [view] = await updated;
+  assert.equal(view.id, aliceId);
+  assert.equal(view.recording, true);
+
+  const visitor = await app.client();
+  assert.equal((await ack(visitor, "room:peek", { roomId: room })).recording, true);
+  const carol = await app.client();
+  const reply = await joinRoom(carol, room, "Carol");
+  assert.equal(reply.participants.find((p) => p.id === aliceId).recording, true);
+
+  const stopped = nextEvent(bob, "participant:updated");
+  await ack(alice, "recording:set", { recording: false });
+  assert.equal((await stopped)[0].recording, false);
+  assert.equal((await ack(visitor, "room:peek", { roomId: room })).recording, false);
+  assert.equal((await ack(alice, "recording:set", { recording: "yes" })).error, "invalid-payload");
+});

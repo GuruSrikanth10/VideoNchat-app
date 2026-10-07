@@ -9,6 +9,7 @@ import { Tiles } from "./ui/tiles.js";
 import { Chat } from "./ui/chat.js";
 import { People } from "./ui/people.js";
 import { ReactionMenu } from "./ui/reactions.js";
+import { CallRecorder, saveRecording } from "./lib/recorder.js";
 import { toast, announce } from "./ui/toast.js";
 import { confirmDialog, choiceDialog } from "./ui/dialog.js";
 import { hydrateIcons, setIcon } from "./ui/icons.js";
@@ -199,6 +200,9 @@ async function join({ ticket } = {}) {
   sendMediaState();
   // A new identity starts with its hand down; put it back up if it was.
   if (!resumed && handRaisedAt) setHand(true);
+  // Everyone has to know about a recording that is still going.
+  if (!resumed && recorder.active) socket.emit("recording:set", { recording: true });
+  renderRecording();
   hideBanner();
   updateCount();
   return true;
@@ -269,6 +273,7 @@ function addParticipant(participant, { quiet = false } = {}) {
   showRemoteMedia(participant.id);
   if (!known && !quiet) toast(strings.call.joined(participant.name));
   updateCount();
+  renderRecording();
   renderPeople();
 }
 
@@ -284,6 +289,11 @@ function updateParticipant(participant) {
   });
   if (participant.screen && !previous.screen) toast(strings.call.presenting(participant.name));
   if (participant.hand && !previous.hand) toast(strings.hands.raised(participant.name));
+  if (participant.recording !== previous.recording) {
+    const notice = participant.recording ? strings.recording.started : strings.recording.stopped;
+    toast(notice(participant.name), { tone: participant.recording ? "warning" : "info" });
+  }
+  renderRecording();
   showRemoteMedia(participant.id);
   renderPeople();
 }
@@ -297,6 +307,7 @@ function removeParticipant(id, { quiet = false } = {}) {
   tiles.remove(id);
   if (participant && !quiet) toast(strings.call.left(participant.name));
   updateCount();
+  renderRecording();
   renderPeople();
 }
 
@@ -618,6 +629,74 @@ async function setHand(raised) {
   if (changed) announce(raised ? strings.hands.yoursUp : strings.hands.yoursDown);
 }
 
+// -------------------------------------------------------------- recording
+
+const recorder = new CallRecorder({
+  getTiles: () => tiles.snapshot(),
+  getAudioTracks: () =>
+    [
+      media.mic,
+      ...[...participants.keys()].flatMap((id) => mesh?.streams(id)?.media.getAudioTracks() ?? []),
+    ].filter(Boolean),
+});
+
+async function startRecording() {
+  if (!CallRecorder.supported()) return toast(strings.recording.unsupported, { tone: "warning" });
+  // Everyone is told first; no announcement, no recording.
+  const reply = await request(socket, "recording:set", { recording: true });
+  if (!reply.ok) return toast(strings.recording.failed, { tone: "error" });
+  try {
+    recorder.start();
+  } catch {
+    socket.emit("recording:set", { recording: false });
+    return toast(strings.recording.failed, { tone: "error" });
+  }
+  renderRecording();
+}
+
+async function stopRecording() {
+  if (!recorder.active) return;
+  const blob = await recorder.stop();
+  socket.emit("recording:set", { recording: false });
+  renderRecording();
+  if (!blob?.size) return;
+  const when = new Date().toISOString().slice(0, 16).replace("T", " ").replace(":", "-");
+  saveRecording(blob, strings.recording.fileName(roomId, when));
+  toast(strings.recording.saved, { tone: "success" });
+}
+
+// Who is recording, at the top of the call for as long as it lasts.
+function renderRecording() {
+  const others = [...participants.values()].filter((p) => p.recording).map((p) => p.name);
+  const mine = recorder.active;
+  $("recording-notice").hidden = !mine && others.length === 0;
+  $("recording-stop").hidden = !mine;
+  const text = mine
+    ? others.length
+      ? strings.recording.youAndOthers(others.length)
+      : strings.recording.you
+    : others.length
+      ? strings.recording.others(others)
+      : "";
+  if ($("recording-text").textContent !== text) $("recording-text").textContent = text;
+  $("record-toggle").hidden = !CallRecorder.supported();
+  $("record-toggle").querySelector(".record-toggle__label").textContent = mine
+    ? strings.recording.stop
+    : strings.recording.start;
+}
+
+$("record-toggle").addEventListener("click", () => {
+  $("settings-dialog").close();
+  if (recorder.active) stopRecording();
+  else startRecording();
+});
+$("recording-stop").addEventListener("click", stopRecording);
+
+// Closing the tab would lose the recording, so the browser asks first.
+window.addEventListener("beforeunload", (event) => {
+  if (recorder.active) event.preventDefault();
+});
+
 // ------------------------------------------------------------------- host
 
 // Changes the server made to you: becoming host, or a host lowering your
@@ -893,6 +972,7 @@ $("leave").addEventListener("click", async () => {
 });
 
 async function leave({ reason } = {}) {
+  await stopRecording(); // saved before the page goes
   leaving = true;
   joined = false;
   if (!reason) await request(socket, "room:leave", undefined, 2000);

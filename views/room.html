@@ -60,9 +60,18 @@
       </div>
     </header>
 
-    <div id="banner" class="banner" role="status" hidden>
-      <span class="banner__text"></span>
-      <button type="button" class="btn btn--secondary banner__action" hidden></button>
+    <div class="notices">
+      <div id="banner" class="banner" role="status" hidden>
+        <span class="banner__text"></span>
+        <button type="button" class="btn btn--secondary banner__action" hidden></button>
+      </div>
+      <div id="recording-notice" class="recording-notice" hidden>
+        <span class="recording-notice__dot" aria-hidden="true"></span>
+        <span id="recording-text" role="status"></span>
+        <button id="recording-stop" class="btn btn--secondary" type="button" hidden>
+          Stop recording
+        </button>
+      </div>
     </div>
 
     <main id="lobby" class="lobby" aria-labelledby="lobby-title">
@@ -313,6 +322,17 @@
           <label for="call-audiooutput">Speaker</label>
           <select id="call-audiooutput"></select>
         </div>
+        <section id="recording-settings" class="effects" aria-labelledby="recording-title">
+          <h3 id="recording-title" class="effects__title">Recording</h3>
+          <p class="effects__note">
+            The recording is saved on this device, and everyone in the meeting is told while you
+            record.
+          </p>
+          <button id="record-toggle" class="btn btn--secondary" type="button">
+            <svg data-icon="circle-dot"></svg>
+            <span class="record-toggle__label">Start recording</span>
+          </button>
+        </section>
         <fieldset class="effects">
           <legend>Effects</legend>
           <label class="switch">

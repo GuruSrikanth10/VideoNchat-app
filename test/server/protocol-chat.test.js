@@ -83,6 +83,7 @@ test("media state is shared with others and with late joiners", async () => {
       screen: false,
       hand: null,
       host: true,
+      recording: false,
     },
   ]);
   assert.equal((await ack(alice, "media:state", { video: "on" })).error, "invalid-payload");

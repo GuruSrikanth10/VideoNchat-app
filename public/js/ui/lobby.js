@@ -174,6 +174,8 @@ export class Lobby {
     else if (reply.locked) info.textContent = strings.lobby.locked;
     else if (reply.count === 0) info.textContent = strings.lobby.nobodyHere;
     else info.textContent = strings.lobby.peopleHere(reply.count);
+    // Before anyone joins, they know they'd be recorded.
+    if (reply.recording) info.textContent += ` ${strings.recording.lobby}`;
   }
 
   // A locked meeting is joined by asking the host.

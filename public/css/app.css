@@ -282,7 +282,7 @@ button:disabled {
   grid-row: 1;
 }
 
-.room-page > .banner {
+.room-page > .notices {
   grid-row: 2;
 }
 
@@ -320,6 +320,44 @@ button:disabled {
 .topbar__info {
   display: flex;
   gap: 8px;
+}
+
+.recording-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 16px 8px;
+  padding: 6px 16px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-weight: 600;
+  text-align: center;
+}
+
+.recording-notice[hidden] {
+  display: none;
+}
+
+.recording-notice .btn {
+  min-height: 36px;
+  padding: 6px 14px;
+}
+
+.recording-notice__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .banner {
@@ -869,6 +907,21 @@ button:disabled {
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+
+.effects__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.effects__note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+#recording-settings .btn {
+  justify-self: start;
 }
 
 .effects legend {
@@ -1729,6 +1782,10 @@ kbd {
   *::before,
   *::after {
     transition: none !important;
+  }
+
+  .recording-notice__dot {
+    animation: none;
   }
 
   /* Reactions appear and fade in place instead of flying. */
