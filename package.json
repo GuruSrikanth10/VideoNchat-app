@@ -1,24 +1,24 @@
 {
   "name": "videochat",
   "version": "1.0.0",
-  "description": "Building a Videochatapp.",
+  "description": "Video meetings with chat and screen sharing, built on WebRTC.",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node app.js"
+    "start": "node app.js",
+    "dev": "node --watch app.js"
   },
   "author": "Guru SriKanth",
   "license": "ISC",
   "dependencies": {
     "ejs": "^3.1.10",
-    "express": "^4.19.2",
+    "express": "^4.22.3",
     "peer": "^1.0.2",
-    "socket.io": "^4.7.5",
-    "socket.io-client": "^4.7.5",
-    "uuid": "^10.0.0",
+    "peerjs": "1.5.5",
+    "socket.io": "^4.8.4",
+    "sweetalert2": "11.26.25",
     "ws": "^8.22.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.3"
+    "socket.io-client": "^4.8.4"
   }
 }

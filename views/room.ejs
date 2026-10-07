@@ -4,13 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VideoChat app</title>
-    <link rel="stylesheet" href="style.css" />
-    <!-- <script src="/socket.io/socket.io.js"></script> -->
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="/style.css" />
+    <!-- Socket.IO serves its own client, so it always matches the server. -->
+    <script src="/socket.io/socket.io.min.js"></script>
     <script src="https://kit.fontawesome.com/c939d0e917.js"></script>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <!-- <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script> -->
-    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/vendor/peerjs/peerjs.min.js"></script>
+    <script src="/vendor/sweetalert2/sweetalert2.all.min.js"></script>
 
     <script>
       const ROOM_ID = "<%= roomId %>";
@@ -98,6 +97,6 @@
       </div>
     </div>
   </div>
+    <script src="/client.js"></script>
   </body>
-  <script src="client.js"></script>
 </html>

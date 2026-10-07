@@ -1,6 +1,7 @@
+const path = require("path");
+const { randomUUID } = require("crypto");
 const express = require("express");
 const app = express();
-const { v4: uuidv4 } = require("uuid");
 
 //****************************//PORT //****************************//
 const port = Number(process.env.PORT) || 3000; // Hosts such as Render set PORT
@@ -32,12 +33,17 @@ const peerServer = ExpressPeerServer(server, {
 });
 
 app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
 app.use("/peerjs", peerServer);
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
+// Browser libraries are served from node_modules instead of public CDNs, so
+// versions are pinned in package-lock.json and the app doesn't depend on them.
+app.use("/vendor/peerjs", express.static(path.join(__dirname, "node_modules/peerjs/dist")));
+app.use("/vendor/sweetalert2", express.static(path.join(__dirname, "node_modules/sweetalert2/dist")));
 
 //****************************//GET REQUESTS //****************************//
 app.get("/", (req, res) => {
-  res.redirect(`/${uuidv4()}`); // Creates a new random id and redirects it.
+  res.redirect(`/${randomUUID()}`); // Creates a new random id and redirects it.
 });
 
 app.get("/leave", (req, res) => {
