@@ -9,12 +9,17 @@ const { attachLegacyProtocol } = require("./legacy-socket");
 
 // Builds the app without listening, so tests can start it on any port.
 function createServer({ config = loadConfig(), logger = createLogger(config) } = {}) {
-  const app = createHttpApp({ config, logger });
+  let io;
+  const health = () => ({
+    uptimeSeconds: Math.round(process.uptime()),
+    connections: io?.engine.clientsCount ?? 0,
+  });
+  const app = createHttpApp({ config, logger, health });
   const server = http.createServer(app);
 
   // The page is served from this same origin, so no CORS setup is needed.
   // Payloads are small, so keep the buffer far below the 1 MB default.
-  const io = new Server(server, { maxHttpBufferSize: 64 * 1024 });
+  io = new Server(server, { maxHttpBufferSize: 64 * 1024 });
 
   // Lets clients measure their real round-trip time to the server.
   io.on("connection", (socket) => {
@@ -25,16 +30,36 @@ function createServer({ config = loadConfig(), logger = createLogger(config) } =
 
   mountPeerServer(app, server);
   attachLegacyProtocol(io);
-  addPageRoutes(app);
+  addPageRoutes(app, { logger });
 
   return { app, server, io, config, logger };
 }
 
 function start() {
-  const { server, config, logger } = createServer();
+  const { server, io, config, logger } = createServer();
   server.listen(config.port, () => {
     logger.info({ port: server.address().port }, "listening");
   });
+
+  // On deploys the platform sends SIGTERM. Warn connected clients (calls are
+  // peer-to-peer, so media keeps flowing while they reconnect), stop accepting
+  // connections, then exit.
+  let stopping = false;
+  const shutdown = (signal) => {
+    if (stopping) process.exit(1); // second signal: give up waiting
+    stopping = true;
+    const inSeconds = Math.ceil(config.shutdownGraceMs / 1000);
+    logger.info({ signal, inSeconds }, "shutting down");
+    io.emit("server:restarting", { inSeconds });
+    server.close();
+    setTimeout(() => {
+      io.close();
+      process.exit(0);
+    }, config.shutdownGraceMs).unref();
+  };
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
+
   return server;
 }
 

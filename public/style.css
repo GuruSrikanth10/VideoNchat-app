@@ -301,3 +301,31 @@ video {
     display: flex;
   }
 }
+
+/* 404 and 500 pages */
+.status-page {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  background-color: var(--dark2);
+  color: var(--light1);
+  text-align: center;
+}
+
+.status-page main {
+  max-width: 32rem;
+  padding: 2rem;
+}
+
+.status-page h1 {
+  margin-bottom: 1rem;
+}
+
+.status-page p + p {
+  margin-top: 1.5rem;
+}
+
+.status-page a {
+  color: var(--light1);
+  font-weight: bold;
+}
