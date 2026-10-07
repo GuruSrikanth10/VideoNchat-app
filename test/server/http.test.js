@@ -167,3 +167,25 @@ test("pages get ETags, so revalidating them is cheap", async () => {
   });
   assert.equal(again.status, 304);
 });
+
+test("HTTPS is enforced only once PUBLIC_URL says the site is HTTPS-only", async () => {
+  const headers = async (env) => {
+    const server = await startTestServer(env);
+    try {
+      const res = await fetch(`${server.url}/`);
+      return {
+        hsts: res.headers.get("strict-transport-security"),
+        csp: res.headers.get("content-security-policy"),
+      };
+    } finally {
+      await server.close();
+    }
+  };
+  const local = await headers({ NODE_ENV: "production", PUBLIC_URL: "http://localhost:3000" });
+  assert.equal(local.hsts, null);
+  assert.doesNotMatch(local.csp, /upgrade-insecure-requests/);
+
+  const hosted = await headers({ NODE_ENV: "production", PUBLIC_URL: "https://meet.example.com" });
+  assert.match(hosted.hsts, /max-age=\d+/);
+  assert.match(hosted.csp, /upgrade-insecure-requests/);
+});

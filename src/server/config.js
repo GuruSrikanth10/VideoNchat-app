@@ -64,11 +64,15 @@ function loadConfig(env = process.env) {
   const trustProxy = integer("TRUST_PROXY", 0, { min: 0, max: 10 });
 
   const nodeEnv = env.NODE_ENV || "development";
+  const publicUrl = url("PUBLIC_URL");
   const config = {
     nodeEnv,
     isProduction: nodeEnv === "production",
     port: integer("PORT", 3000, { min: 0, max: 65535 }),
-    publicUrl: url("PUBLIC_URL"),
+    publicUrl,
+    // Only an https PUBLIC_URL confirms the site is HTTPS-only, which HSTS
+    // and upgrading requests need (http://localhost would break otherwise).
+    httpsOnly: publicUrl?.startsWith("https://") ?? false,
     trustProxy,
     logLevel: env.LOG_LEVEL || (nodeEnv === "test" ? "silent" : "info"),
     // Bearer token for GET /metrics; without it, there are no metrics.

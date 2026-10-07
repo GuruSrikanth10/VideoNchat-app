@@ -50,7 +50,7 @@ function contentSecurityPolicy(config) {
       // Browsers report anything the policy blocks (see /api/csp-report).
       reportUri: ["/api/csp-report"],
       reportTo: ["csp"],
-      ...(config.isProduction ? { upgradeInsecureRequests: [] } : {}),
+      ...(config.httpsOnly ? { upgradeInsecureRequests: [] } : {}),
     },
   };
 }
@@ -183,7 +183,7 @@ function createHttpApp({ config, logger, health, metrics }) {
     helmet({
       contentSecurityPolicy: contentSecurityPolicy(config),
       xFrameOptions: { action: "deny" },
-      strictTransportSecurity: config.isProduction,
+      strictTransportSecurity: config.httpsOnly,
     }),
   );
   app.use((req, res, next) => {
