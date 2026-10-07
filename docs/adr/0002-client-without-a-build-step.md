@@ -25,15 +25,15 @@ sprite. Every browser we support loads native ES modules.
 
 ## Decision
 
-Option 2. The client is about 20 small modules, and each is cached and
+Option 2. The client is about 30 small modules, and each is cached and
 revalidated with an ETag. Without bundling the strict CSP stays simple
 (`script-src 'self'`). Unit tests import the same modules directly in
 Node.
 
 ## Consequences
 
-- No minification. The whole client is well under the plan's 100 KB
-  gzipped budget anyway, and compression is on.
+- No minification. The meeting page's JavaScript is about 56 KB
+  gzipped, Socket.IO included, well under the plan's 100 KB budget.
 - Module imports are fetched in waterfalls on a cold load. If that ever
   shows up in measurements, `<link rel="modulepreload">` for the entry
   points is the first step, and a bundler can still be added later
