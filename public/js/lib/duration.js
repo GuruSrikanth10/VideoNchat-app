@@ -1,4 +1,4 @@
-// "45 seconds", "12 minutes", "1 hour, 5 minutes", in the reader's language.
+// "45 seconds", "12 minutes", "1 hour, 5 minutes", in the given language.
 export function formatDuration(totalSeconds, locale = undefined) {
   const seconds = Math.max(0, Math.round(totalSeconds));
   const hours = Math.floor(seconds / 3600);

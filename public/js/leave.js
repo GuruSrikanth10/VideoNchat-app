@@ -20,6 +20,8 @@ try {
 }
 if (lastCall?.room === room && Number.isFinite(lastCall.seconds)) {
   const duration = document.getElementById("call-duration");
-  duration.textContent = `You were in the meeting for ${formatDuration(lastCall.seconds)}.`;
+  // Worded in the page's language, to match the sentence around it.
+  const words = formatDuration(lastCall.seconds, document.documentElement.lang || undefined);
+  duration.textContent = `You were in the meeting for ${words}.`;
   duration.hidden = false;
 }
